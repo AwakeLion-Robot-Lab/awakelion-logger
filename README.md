@@ -27,8 +27,5 @@ a light-weighted C++ websocket library for monitoring log information so that yo
 >>
 
 
-
-```text
 > [!CAUTION]
-> for now, the ringbuffer just for SPSC because CAS operation is too complicate for me :<, however, there is a better way to do it within [Vyukov's MPMCQueue](https://int08h.com/post/ode-to-a-vyukov-queue/)
-```
+> for now, the ringbuffer just for SPSC because CAS operation is too complicate for me :<, however, there is a better way to do it within [Vyukov&#39;s MPMCQueue](https://int08h.com/post/ode-to-a-vyukov-queue/).
