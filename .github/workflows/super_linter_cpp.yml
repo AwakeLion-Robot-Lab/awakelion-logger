@@ -1,0 +1,57 @@
+name: super-linter-cpp
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions: 
+  contents: read
+
+jobs:
+  fix-cpp-lint:
+    runs-on: ubuntu-22.04
+
+    permissions:
+      contents: read
+      statuses: write
+
+    steps:
+    - name: checkout code
+      uses: actions/checkout@v5.0.0
+      with:
+        # get all the branches and tags
+        fetch-depth: 0
+        persist-credentials: false
+
+    - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
+
+    - run: echo "🖥️ Run super-linter to check your code on the runner."
+    
+    # we gotta fix linting within C++, JSON and CMakeLists
+    - name: run super-linter
+      uses: super-linter/super-linter@v8.1.0 
+      env:
+          VALIDATE_CLANG_FORMAT: True
+          VALIDATE_JSON: True
+          IGNORE_GITIGNORED_FILES: True
+          CLANG_FORMAT_FILE_NAME: '.clang-format'
+          FILTER_REGEX_INCLUDE: (.*config/.*|.*include/aw_logger/.*|.*src/.*)
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
+
+    - name: Commit and push linting fixes
+        # Run only on:
+        # - Pull requests
+        # - Not on the default branch
+      if: >
+          github.event_name == 'pull_request' &&
+          github.ref_name != github.event.repository.default_branch
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+          branch: ${{ github.event.pull_request.head.ref || github.head_ref || github.ref }}
+          commit_message: "super-linter: fix linting issues"
+          commit_user_name: super-linter
+          commit_user_email: super-linter@super-linter.dev
+
+    - run: echo "🎉 Linting issues fixed!"

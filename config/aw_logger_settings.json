@@ -1,0 +1,42 @@
+{
+    "log_event_components": [
+        {
+            "type": "timestamp",
+            "enabled": true
+        },
+        {
+            "type": "level",
+            "enabled": true
+        },
+        {
+            "type": "tid",
+            "enabled": true
+        },
+        {
+            "type": "loc",
+            "format": "[{file_name}:{function_name}:{line}]",
+            "enabled": true
+        },
+        {
+            "type": "msg",
+            "enabled": true
+        },
+        {
+            "type": "color",
+            "level_colors": {
+                "debug": "white",
+                "info": "cyan",
+                "notice": "blue",
+                "warn": "yellow",
+                "error": "red",
+                "fatal": "magenta"
+            },
+            "enabled": true
+        }
+    ],
+    "uwebsockets": [
+        {
+            "port": 1234
+        }
+    ]
+}
