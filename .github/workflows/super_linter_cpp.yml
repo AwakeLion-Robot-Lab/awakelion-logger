@@ -31,12 +31,12 @@ jobs:
     
     # we gotta fix linting within C++, JSON and CMakeLists
     - name: run super-linter
-      uses: super-linter/super-linter@v8.1.0 
+      uses: super-linter/super-linter@v8.2.0 
       env:
           VALIDATE_CLANG_FORMAT: True
           VALIDATE_JSON: True
           IGNORE_GITIGNORED_FILES: True
-          CLANG_FORMAT_FILE_NAME: '.clang-format'
+          CLANG_FORMAT_FILE_NAME: .clang-format
           FILTER_REGEX_INCLUDE: (.*config/.*|.*include/aw_logger/.*|.*src/.*)
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
 
