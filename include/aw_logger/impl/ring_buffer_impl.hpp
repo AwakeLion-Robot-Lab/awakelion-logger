@@ -28,13 +28,14 @@ inline RingBuffer<DataT, Allocator>::RingBuffer(size_t capacity):
     capacity_(static_cast<size_t>(ALIGN4(static_cast<uint32_t>(capacity > 0 ? capacity : 0))))
 {
     /* judge size */
-    if (capacity_ == 0) {
+    if (capacity_ == 0)
+    {
         buffer_ = nullptr;
         capacity_ = 0;
         mirror_capacity_ = 0;
         return;
     }
-    mirror_capacity_ = capacity_ << 1; 
+    mirror_capacity_ = capacity_ << 1;
 
     /* allocate memory */
     buffer_ = allocator_trait::allocate(alloc_, capacity_);
@@ -45,9 +46,8 @@ RingBuffer<DataT, Allocator>::~RingBuffer()
 {
     const size_t curr_wIdx = wIdx_.load(std::memory_order_acquire);
     const size_t curr_rIdx = rIdx_.load(std::memory_order_acquire);
-    const size_t used = (curr_wIdx >= curr_rIdx)
-                        ? (curr_wIdx - curr_rIdx)
-                        : (curr_wIdx + mirror_capacity_ - curr_rIdx);
+    const size_t used = (curr_wIdx >= curr_rIdx) ? (curr_wIdx - curr_rIdx)
+                                                 : (curr_wIdx + mirror_capacity_ - curr_rIdx);
 
     // if ringbuffer is not empty
     if (used > 0)
@@ -86,7 +86,7 @@ template<typename U>
 bool RingBuffer<DataT, Allocator>::push(U&& data)
 {
     /* check if ring buffer is valid */
-    if (buffer_ == nullptr || capacity_ == 0) 
+    if (buffer_ == nullptr || capacity_ == 0)
         return false;
 
     /* check if the buffer is full, NOTE here input data will be discarded instead of force-covering */
@@ -95,9 +95,8 @@ bool RingBuffer<DataT, Allocator>::push(U&& data)
     const size_t curr_wIdx = wIdx_.load(std::memory_order_relaxed);
     // here use `std::memory_order_acquire` 'cause ONLY consumer can update read index
     const size_t curr_rIdx = rIdx_.load(std::memory_order_acquire);
-    const size_t used = (curr_wIdx >= curr_rIdx)
-                        ? (curr_wIdx - curr_rIdx)
-                        : (curr_wIdx + mirror_capacity_ - curr_rIdx);
+    const size_t used = (curr_wIdx >= curr_rIdx) ? (curr_wIdx - curr_rIdx)
+                                                 : (curr_wIdx + mirror_capacity_ - curr_rIdx);
 
     if (used >= capacity_)
     {
@@ -127,16 +126,14 @@ template<typename DataT, typename Allocator>
 bool RingBuffer<DataT, Allocator>::pop(value_type& data)
 {
     /* check if ring buffer is valid */
-    if (buffer_ == nullptr || capacity_ == 0) 
+    if (buffer_ == nullptr || capacity_ == 0)
         return false;
 
     /* check if ring buffer is empty */
     const size_t curr_rIdx = rIdx_.load(std::memory_order_relaxed);
     const size_t curr_wIdx = wIdx_.load(std::memory_order_acquire);
-    const size_t used = (curr_wIdx >= curr_rIdx)
-                        ? (curr_wIdx - curr_rIdx)
-                        : (curr_wIdx + mirror_capacity_ - curr_rIdx);
-
+    const size_t used = (curr_wIdx >= curr_rIdx) ? (curr_wIdx - curr_rIdx)
+                                                 : (curr_wIdx + mirror_capacity_ - curr_rIdx);
 
     if (used == 0)
     {
@@ -151,7 +148,7 @@ bool RingBuffer<DataT, Allocator>::pop(value_type& data)
 
     size_t next_rIdx = curr_rIdx + 1;
     if (next_rIdx >= mirror_capacity_)
-        next_rIdx -= mirror_capacity_; 
+        next_rIdx -= mirror_capacity_;
     rIdx_.store(next_rIdx, std::memory_order_release);
 
     return true;
@@ -162,9 +159,8 @@ inline const size_t RingBuffer<DataT, Allocator>::getSize() const noexcept
 {
     const size_t curr_wIdx = wIdx_.load(std::memory_order_acquire);
     const size_t curr_rIdx = rIdx_.load(std::memory_order_acquire);
-    return (curr_wIdx >= curr_rIdx)
-           ? (curr_wIdx - curr_rIdx)
-           : (curr_wIdx + mirror_capacity_ - curr_rIdx); 
+    return (curr_wIdx >= curr_rIdx) ? (curr_wIdx - curr_rIdx)
+                                    : (curr_wIdx + mirror_capacity_ - curr_rIdx);
 }
 
 } // namespace aw_logger

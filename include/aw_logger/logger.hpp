@@ -60,6 +60,8 @@ private:
 
 /***
  * @brief asynchronous logger class with a center ringbuffer
+ * @details `std::enabled_shared_from_this` allow to manage the ONLY ONE share pointer of this class object
+ * @details via `std::shared_from_this`
  */
 class Logger: public std::enable_shared_from_this<Logger> {
 public:
@@ -86,6 +88,11 @@ private:
      * @brief ringbuffer
      */
     RingBuffer<std::string> rb_;
+
+    /***
+     * @brief logger mutex
+     */
+    std::mutex lgr_mtx_;
 };
 
 /***
@@ -132,13 +139,14 @@ private:
 
     /***
      * @brief loggers map to storage and search specific logger
+     * @details {logger name: pointer of logger}
      */
     std::unordered_map<std::string, Logger::Ptr> loggers_map_;
 
     /***
-     * @brief mutex
+     * @brief logger manager mutex
      */
-    std::mutex mutex_;
+    std::mutex mgr_mtx_;
 };
 } // namespace aw_logger
 

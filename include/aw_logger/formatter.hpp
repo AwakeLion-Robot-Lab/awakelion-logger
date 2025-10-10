@@ -84,7 +84,7 @@ private:
 
     /***
      * @brief map of registered components
-     * @details {type: format string}
+     * @details {type: unformatted data}
      */
     std::map<std::string, std::string> registered_components_;
 

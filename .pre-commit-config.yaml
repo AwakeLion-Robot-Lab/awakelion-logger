@@ -1,0 +1,10 @@
+repos:
+  - repo: https://bgithub.xyz/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+    -   id: check-json
+
+  - repo: https://bgithub.xyz/pre-commit/mirrors-clang-format
+    rev: v21.1.0
+    hooks:
+      - id: clang-format

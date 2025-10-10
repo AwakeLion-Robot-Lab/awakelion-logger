@@ -75,7 +75,10 @@ public:
      * @brief get capacity of ring buffer
      * @retval capacity of ring buffer
      */
-    inline const size_t getCapacity() const noexcept { return capacity_; }
+    inline const size_t getCapacity() const noexcept
+    {
+        return capacity_;
+    }
 
     /***
      * @brief get size of ring buffer
@@ -105,11 +108,13 @@ private:
 
     /***
      * @brief atomic write index
+     * @details wIdx and rIdx in different cache line to avoid false sharing
      */
     alignas(64) std::atomic<size_t> wIdx_;
 
     /***
      * @brief atomic read index
+     * @details wIdx and rIdx in different cache line to avoid false sharing
      */
     alignas(64) std::atomic<size_t> rIdx_;
 
@@ -121,7 +126,7 @@ private:
     /***
      * @brief mirror capacity, which is `2 * capacity_`
      */
-    size_t mirror_capacity_; 
+    size_t mirror_capacity_;
 
 #ifndef ALIGN4
     /***
