@@ -25,16 +25,23 @@ inline RingBuffer<DataT, Allocator>::RingBuffer(size_t capacity):
     alloc_(),
     wIdx_(0),
     rIdx_(0),
-    capacity_(static_cast<size_t>(ALIGN4(static_cast<uint32_t>(capacity > 0 ? capacity : 0))))
+    capacity_(0),
+    mirror_capacity_(0)
 {
     /* judge size */
-    if (capacity_ == 0)
-    {
-        buffer_ = nullptr;
-        capacity_ = 0;
-        mirror_capacity_ = 0;
-        return;
-    }
+    if (capacity == 0)
+        throw aw_logger::invalid_parameter("capacity must be greater than 0!");
+
+    const auto e_size = sizeof(DataT);
+    if (capacity > (std::numeric_limits<size_t>::max() / e_size))
+        throw aw_logger::invalid_parameter("requested capacity too large!");
+
+    /* align storage to 4 bytes */
+    const auto aligned_storage = ALIGN4(capacity * e_size);
+    capacity_ = aligned_storage / e_size;
+
+    if ((capacity_ << 1) > std::numeric_limits<size_t>::max())
+        throw aw_logger::invalid_parameter("requested mirror capacity too large!");
     mirror_capacity_ = capacity_ << 1;
 
     /* allocate memory */
@@ -85,26 +92,30 @@ template<typename DataT, typename Allocator>
 template<typename U>
 bool RingBuffer<DataT, Allocator>::push(U&& data)
 {
-    /* check if ring buffer is valid */
-    if (buffer_ == nullptr || capacity_ == 0)
-        return false;
-
-    /* check if the buffer is full, NOTE here input data will be discarded instead of force-covering */
-
-    // here use `std::memory_order_relaxed` 'cause ONLY producer can update write index
-    const size_t curr_wIdx = wIdx_.load(std::memory_order_relaxed);
-    // here use `std::memory_order_acquire` 'cause ONLY consumer can update read index
-    const size_t curr_rIdx = rIdx_.load(std::memory_order_acquire);
-    const size_t used = (curr_wIdx >= curr_rIdx) ? (curr_wIdx - curr_rIdx)
-                                                 : (curr_wIdx + mirror_capacity_ - curr_rIdx);
-
-    if (used >= capacity_)
+    try
     {
-        fprintf(stderr, "[aw_logger]: ring buffer is full, discard this data!\n");
+        /* check if ring buffer is valid */
+        if (buffer_ == nullptr || capacity_ == 0)
+            return false;
+
+        /* check if the buffer is full, NOTE here input data will be discarded instead of force-covering */
+
+        // here use `std::memory_order_relaxed` 'cause ONLY producer can update write index
+        const size_t curr_wIdx = wIdx_.load(std::memory_order_relaxed);
+        // here use `std::memory_order_acquire` 'cause ONLY consumer can update read index
+        const size_t curr_rIdx = rIdx_.load(std::memory_order_acquire);
+        const size_t used = (curr_wIdx >= curr_rIdx) ? (curr_wIdx - curr_rIdx)
+                                                     : (curr_wIdx + mirror_capacity_ - curr_rIdx);
+
+        if (used >= capacity_)
+            throw aw_logger::ringbuffer_exception("ring buffer is full!");
+    } catch (const std::exception& ex)
+    {
+        std::cerr << ex.what() << '\n' << std::endl;
         return false;
     }
 
-    /** 
+    /**
      *  below is the normal way for placement new
      *  new& buffer_[wPtr] DataT(std::forward<U>(data));
      *  we use std::allocator::construct() instead
@@ -125,19 +136,24 @@ bool RingBuffer<DataT, Allocator>::push(U&& data)
 template<typename DataT, typename Allocator>
 bool RingBuffer<DataT, Allocator>::pop(value_type& data)
 {
-    /* check if ring buffer is valid */
-    if (buffer_ == nullptr || capacity_ == 0)
-        return false;
-
-    /* check if ring buffer is empty */
-    const size_t curr_rIdx = rIdx_.load(std::memory_order_relaxed);
-    const size_t curr_wIdx = wIdx_.load(std::memory_order_acquire);
-    const size_t used = (curr_wIdx >= curr_rIdx) ? (curr_wIdx - curr_rIdx)
-                                                 : (curr_wIdx + mirror_capacity_ - curr_rIdx);
-
-    if (used == 0)
+    try
     {
-        fprintf(stderr, "[aw_logger]: ring buffer is empty, cannot pop data!\n");
+        /* check if ring buffer is valid */
+        if (buffer_ == nullptr || capacity_ == 0)
+            throw aw_logger::ringbuffer_exception("ring buffer is not initialized!");
+
+        /* check if ring buffer is empty */
+        const size_t curr_rIdx = rIdx_.load(std::memory_order_relaxed);
+        const size_t curr_wIdx = wIdx_.load(std::memory_order_acquire);
+        const size_t used = (curr_wIdx >= curr_rIdx) ? (curr_wIdx - curr_rIdx)
+                                                     : (curr_wIdx + mirror_capacity_ - curr_rIdx);
+
+        if (used == 0)
+            throw aw_logger::ringbuffer_exception("ring buffer is empty!");
+
+    } catch (const std::exception& ex)
+    {
+        std::cerr << ex.what() << '\n' << std::endl;
         return false;
     }
 

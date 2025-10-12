@@ -90,6 +90,10 @@ inline const size_t LogEvent::_getThreadId() const noexcept
     return static_cast<size_t>(std::hash<std::thread::id>()(std::this_thread::get_id()));
 #endif
 }
+
+LogEventWrap::LogEventWrap(LogEvent::Ptr event): event_(event) {}
+
+LogEventWrap::~LogEventWrap() {}
 } // namespace aw_logger
 
 #endif //! IMPL__LOG_EVENT_IMPL_HPP

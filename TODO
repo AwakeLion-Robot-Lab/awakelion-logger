@@ -1,6 +1,0 @@
-☐ support componentFactory class which is used to manage component registration
-☐ support loggerManager singleton class to manager loggers in multi-threads
-☐ logger class change to async-logger, which includes ringbuffer as a queue center, formatter class and filter class(within loglevel class) 
-☐ process ringbuffer load test and appenders latency test
-☐ support websocket for monitoring log information in real time, considering library as [uWebSockets](https://github.com/uNetworking/uWebSockets)
-

@@ -18,10 +18,6 @@
             "enabled": true
         },
         {
-            "type": "msg",
-            "enabled": true
-        },
-        {
             "type": "color",
             "level_colors": {
                 "debug": "white",
@@ -31,6 +27,10 @@
                 "error": "red",
                 "fatal": "magenta"
             },
+            "enabled": true
+        },
+        {
+            "type": "msg",
             "enabled": true
         }
     ],

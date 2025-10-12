@@ -4,4 +4,4 @@ project(aw_logger)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_library(aw_logger STATIC include/)
+add_library(aw_logger STATIC include/aw_logger/)

@@ -18,11 +18,35 @@
 #include "aw_logger/logger.hpp"
 
 namespace aw_logger {
-Filter::Filter() {}
+inline Logger::Logger(std::string_view name):
+    name_(name),
+    threshold_level_(LogLevel::level::DEBUG),
+    rb_(64 * 1024),
+    running_(false)
+{
+    formatter_ = std::make_shared<Formatter>(new ComponentFactory());
+}
 
-template<typename... Args>
-inline void aw_logger::Filter::setFilter(std::string_view s, Args&&... args)
-{}
+inline Logger::~Logger()
+{
+    running_.store(false);
+    cv_.notify_all();
+    if (worker_.joinable())
+        worker_.join();
+}
+
+void Logger::submit(LogEvent::ConstPtr& event)
+{
+    if (event == nullptr)
+        throw aw_logger::invalid_parameter("log event is nullptr!");
+
+    /* log level filter */
+    if (event->getLogLevel() < threshold_level_)
+        return;
+
+    /* push to ringbuffer */
+    rb_.push(event);
+}
 } // namespace aw_logger
 
 #endif //! IMPL__LOGGER_IMPL_HPP

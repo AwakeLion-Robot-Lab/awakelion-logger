@@ -1,0 +1,3 @@
+[submodule "include/3rdparty/uWebSockets"]
+	path = include/3rdparty/uWebSockets
+	url = https://github.com/siyiovo/uWebSockets.git

@@ -23,6 +23,9 @@
 #include <atomic>
 #include <memory>
 
+// aw_logger library
+#include "aw_logger/exception.hpp"
+
 /***
  * @brief a low-latency, high-throughput and few-dependency logger for `AwakeLion Robot Lab` project
  * @note fundamental structure is inspired by [sylar logger](https://github.com/sylar-yin/sylar) and implement is
@@ -34,7 +37,7 @@ namespace aw_logger {
  * @brief a lock-free ring buffer without `std::mutex` and mirror MSB, also allocate memory via `std::allocator`
  * @tparam DataT data type
  * @tparam Allocator `std::allocator` type
- * @note inspired by https://github.com/bobwenstudy/simple_ringbuffer and Linux kfifo(it's lock-free but its capacity must be
+ * @details inspired by https://github.com/bobwenstudy/simple_ringbuffer and Linux kfifo(it's lock-free but its capacity must be
  * power of 2)
  */
 template<typename DataT, typename Allocator = std::allocator<DataT>>
@@ -150,7 +153,7 @@ private:
      *    MROUND( 9) = 12
      *    MROUND(13) = 16
      */
-    #define ALIGN4(x) (((uint32_t)(x) + 3u) & (~((uint32_t)3u)))
+    #define ALIGN4(x) (((uint32_t)(x) + 3u) & (~((uint32_t)3)))
 #endif //! ALIGN4
 
     /***

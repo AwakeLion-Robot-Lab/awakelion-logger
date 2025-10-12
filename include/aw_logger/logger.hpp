@@ -16,9 +16,14 @@
 #define LOGGER_HPP
 
 // C++ standard library
+#include <atomic>
+#include <condition_variable>
+#include <list>
 #include <mutex>
+#include <thread>
 
 // aw_logger library
+#include "aw_logger/appender.hpp"
 #include "aw_logger/formatter.hpp"
 #include "aw_logger/ring_buffer.hpp"
 
@@ -29,35 +34,6 @@
  * @author jinhua "siyiovo" deng
  */
 namespace aw_logger {
-/***
- * @brief filter class apply to logger class in order to limit output log 
- */
-class Filter {
-public:
-    using Ptr = std::shared_ptr<Filter>;
-    using ConstPtr = const std::shared_ptr<Filter>;
-
-    /***
-     * @brief constructor
-     */
-    explicit Filter();
-
-    /***
-     * @brief set filter
-     * @tparam Args changable parameter list
-     * @param s input filter
-     * @param args changable parameters
-     */
-    template<typename... Args>
-    void setFilter(std::string_view s, Args&&... args);
-
-private:
-    /***
-     * @brief log level
-     */
-    LogLevel::level level_;
-};
-
 /***
  * @brief asynchronous logger class with a center ringbuffer
  * @details `std::enabled_shared_from_this` allow to manage the ONLY ONE share pointer of this class object
@@ -71,7 +47,26 @@ public:
     /***
      * @brief constructor
      */
-    explicit Logger();
+    explicit Logger(std::string_view name = "root");
+
+    /***
+     * @brief destructor
+     */
+    ~Logger();
+
+    /***
+     * @brief submit formatted log messages to ringbuffer
+     */
+    void submit(LogEvent::ConstPtr& event);
+
+    /***
+     * @brief set log level threshold
+     * @param thres log level threshold
+     */
+    void setThresholdLevel(LogLevel::level thres)
+    {
+        threshold_level_ = thres;
+    }
 
 private:
     /***
@@ -80,19 +75,44 @@ private:
     Formatter::Ptr formatter_;
 
     /***
-     * @brief filter
+     * @brief log event ringbuffer
      */
-    Filter::Ptr filter_;
+    RingBuffer<LogEvent::Ptr> rb_;
 
     /***
-     * @brief ringbuffer
+     * @brief log level threshold
      */
-    RingBuffer<std::string> rb_;
+    LogLevel::level threshold_level_;
+
+    /***
+     * @brief worker thread to pop out log message from ringbuffer to appenders
+     */
+    std::thread worker_;
 
     /***
      * @brief logger mutex
      */
     std::mutex lgr_mtx_;
+
+    /***
+     * @brief flag to indicate whether the logger is running
+     */
+    std::atomic<bool> running_;
+
+    /***
+     * @brief condition variable to notify worker thread
+     */
+    std::condition_variable cv_;
+
+    /***
+     * @brief list of appenders
+     */
+    std::list<BaseAppender::Ptr> appenders_;
+
+    /***
+     * @brief logger name
+     */
+    std::string name_;
 };
 
 /***

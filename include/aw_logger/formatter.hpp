@@ -17,6 +17,7 @@
 #define FORMATTER_HPP
 
 // C++ standard library
+#include <format>
 #include <map>
 
 // nlohmann JSON library
@@ -47,17 +48,14 @@ public:
     explicit ComponentFactory();
 
     /***
-     * @brief get registered components
-     * @return registered components
+     * @brief map of registered components
+     * @details {type: unformatted data}
      */
-    auto getRegisteredComponents() -> std::map<std::string, std::string>
-    {
-        return registered_components_;
-    }
+    std::map<std::string, std::string> registered_components_;
 
 private:
     /***
-     * @brief log event format json from `logger_settings.json`
+     * @brief log event format json from `aw_logger_settings.json`
      */
     nlohmann::json setting_json_;
 
@@ -83,23 +81,17 @@ private:
                                          { "enabled", true } } } };
 
     /***
-     * @brief map of registered components
-     * @details {type: unformatted data}
-     */
-    std::map<std::string, std::string> registered_components_;
-
-    /***
      * @brief load components from setting
-     * @param setting_file setting file name
+     * @param file_name file name
      */
-    void loadSettingComponents(std::string_view setting_file);
+    void loadSettingComponents(std::string_view file_name);
 
     /***
      * @brief register components from json
      * @param json input json
      * @note each component must have `type` and `enabled` fields, `type` is the type of component, `enabled` is whether
      * the component is enabled, if `enabled` is false, the component will not be formatted
-     * @note the format of component is defined in `json/log_event_format.json`
+     * @note the format of component is defined in `config/aw_logger_settings.json`
      */
     void registerComponents(const nlohmann::json& json);
 };
@@ -120,7 +112,7 @@ public:
     explicit Formatter(const ComponentFactory& factory);
 
     /***
-     * @brief format message
+     * @brief format message while compiling
      * @tparam Args type of universal parameter pack
      * @param fmt formatted message
      * @param args universal parameter pack
@@ -136,19 +128,39 @@ public:
     }
 
     /***
+     * @brief format message while runtime
+     * @tparam Args type of universal parameter pack
+     * @param fmt formatted message
+     * @param args universal parameter pack
+     */
+    template<typename... Args>
+    inline std::string vformat(std::string_view fmt, Args&&... args)
+    {
+        return std::vformat(fmt, std::make_format_args(std::forward<Args>(args)...));
+    }
+
+    /***
      * @brief format log message into `std::string` within registered components
+     * @param event log event
      * @param components registered components map
      * @return formatted log message
      * @details the format is able to be customized in `logger_settings.json`
      */
-    std::string formatComponents(const std::map<std::string, std::string>& components);
+    std::string formatComponents(
+        LogEvent::ConstPtr& event,
+        const std::map<std::string, std::string>& components
+    );
+
+    /***
+     * @brief get registered components map
+     * @return registered components map
+     */
+    auto getRegisteredComponents() -> std::map<std::string, std::string>
+    {
+        return factory_->registered_components_;
+    }
 
 private:
-    /***
-     * @brief log event
-     */
-    LogEvent::Ptr event_;
-
     /***
      * @brief component factory provides registered components
      */
@@ -164,30 +176,32 @@ private:
 
     /***
      * @brief format log message
+     * @param event log event
      * @return formatted log message
      */
-    std::string formatMsg()
+    std::string formatMsg(LogEvent::ConstPtr& event)
     {
-        return Formatter::format(event_->getMsg());
+        return event->getMsg();
     }
 
     /***
      * @brief format log level
+     * @param event log event
      * @return formatted log level
      */
-    std::string formatLevel()
+    std::string formatLevel(LogEvent::ConstPtr& event)
     {
-        return Formatter::format("[" + event_->getLogLevelString() + "]");
+        return Formatter::vformat("[" + event->getLogLevelString() + "]");
     }
 
     /***
      * @brief format log timestamp
-     * @param format timestamp format
+     * @param event log event
      * @return formatted log timestamp
      */
-    std::string formatTimestamp()
+    std::string formatTimestamp(LogEvent::ConstPtr& event)
     {
-        return "[" + Formatter::format("{}", event_->getTimestamp()) + "]";
+        return "[" + Formatter::vformat("[{}]", event->getTimestamp()) + "]";
     }
 
     /***
@@ -195,15 +209,15 @@ private:
      * @param format source location format
      * @return formatted log source location
      */
-    std::string formatSourceLocation(std::string_view format);
+    std::string formatSourceLocation(LogEvent::ConstPtr& event, std::string_view format);
 
     /***
      * @brief format log thread id
      * @return formatted log thread id
      */
-    std::string formatThreadId()
+    std::string formatThreadId(LogEvent::ConstPtr& event)
     {
-        return "[tid: " + Formatter::format("{}", event_->getThreadId()) + "]";
+        return "[tid: " + Formatter::vformat("{}", event->getThreadId()) + "]";
     }
 };
 

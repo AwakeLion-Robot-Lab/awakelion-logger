@@ -22,6 +22,7 @@
 
 // aw_logger library
 #include "aw_logger/fmt_base.hpp"
+#include "aw_logger/logger.hpp"
 
 /***
  * @brief a low-latency, high-throughput and few-dependency logger for `AwakeLion Robot Lab` project
@@ -154,6 +155,15 @@ public:
      */
     inline const size_t getThreadId() const noexcept;
 
+    /***
+     * @brief get logger
+     * @return logger
+     */
+    inline const Logger::Ptr getLogger() const noexcept
+    {
+        return logger_;
+    }
+
 private:
     /***
      * @brief unformatted log message
@@ -183,11 +193,49 @@ private:
     size_t thread_id_;
 
     /***
+     * @brief logger
+     */
+    Logger::Ptr logger_;
+
+    /***
      * @brief get thread id
      * @return thread id
      * @details copied from [spdlog](https://github.com/gabime/spdlog)
      */
     inline const size_t _getThreadId() const noexcept;
+};
+
+/***
+ * @brief wrapped class for `LogEvent` class
+ * @details this class is used to pass the wrapped message to logger via destructor as a temporary object
+ * @details inspired by [sylar logger](https://github.com/sylar-yin/sylar)
+ */
+class LogEventWrap {
+public:
+    /***
+     * @brief constructor
+     */
+    LogEventWrap(LogEvent::Ptr event);
+
+    /***
+     * @brief destructor to pass wrapped message to logger
+     */
+    ~LogEventWrap();
+
+    /***
+     * @brief get log event
+     * @return log event
+     */
+    inline const LogEvent::Ptr getLogEvent() const noexcept
+    {
+        return event_;
+    }
+
+private:
+    /***
+    * @brief log event
+    */
+    LogEvent::Ptr event_;
 };
 } // namespace aw_logger
 
