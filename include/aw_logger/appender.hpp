@@ -15,6 +15,9 @@
 #ifndef BASE_APPENDER_HPP
 #define BASE_APPENDER_HPP
 
+// C++ standard library
+#include <syncstream>
+
 // aw_logger library
 #include "aw_logger/log_event.hpp"
 #include "aw_logger/logger.hpp"
@@ -37,6 +40,12 @@ public:
     using ConstPtr = const std::shared_ptr<BaseAppender>;
 
     /***
+     * @brief constructor
+     * @param flushInterval flush interval in milliseconds
+     */
+    BaseAppender(int flushInterval);
+
+    /***
      * @brief virtual ouput function
      * @param logger logger
      * @param msg formatted log message
@@ -48,6 +57,17 @@ private:
      * @brief appender mutex
      */
     std::mutex app_mtx_;
+
+    /***
+     * @brief synchronized output stream
+     */
+    std::osyncstream sync_out_;
+
+    /***
+     * @brief flush interval
+     * @note milliseconds, `0` means no flush
+     */
+    int flushInterval_;
 };
 
 class ConsoleAppender: public BaseAppender {};

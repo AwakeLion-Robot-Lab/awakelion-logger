@@ -94,9 +94,9 @@ inline void ComponentFactory::registerComponents(const nlohmann::json& json)
     }
 }
 
-inline Formatter::Formatter(const ComponentFactory& factory)
+inline Formatter::Formatter(ComponentFactory::ConstPtr& factory)
 {
-    factory_ = std::make_shared<ComponentFactory>(factory);
+    setFactory(factory);
 }
 
 std::string Formatter::formatComponents(

@@ -219,8 +219,13 @@ public:
 
     /***
      * @brief destructor to pass wrapped message to logger
+     * @details thanks to RAII, when `LogEventWrap` is destructed, the wrapped message is passed to logger
      */
-    ~LogEventWrap();
+    ~LogEventWrap()
+    {
+        if (event_ != nullptr)
+            event_->getLogger()->submit(event_);
+    }
 
     /***
      * @brief get log event

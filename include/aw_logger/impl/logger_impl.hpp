@@ -21,7 +21,7 @@ namespace aw_logger {
 inline Logger::Logger(std::string_view name):
     name_(name),
     threshold_level_(LogLevel::level::DEBUG),
-    rb_(64 * 1024),
+    rb_(1024),
     running_(false)
 {
     formatter_ = std::make_shared<Formatter>(new ComponentFactory());
@@ -35,7 +35,7 @@ inline Logger::~Logger()
         worker_.join();
 }
 
-void Logger::submit(LogEvent::ConstPtr& event)
+void Logger::submit(LogEvent::Ptr& event)
 {
     if (event == nullptr)
         throw aw_logger::invalid_parameter("log event is nullptr!");
@@ -45,7 +45,10 @@ void Logger::submit(LogEvent::ConstPtr& event)
         return;
 
     /* push to ringbuffer */
+    /* 'cause this is hot path, you SHOULD NOT block it */
     rb_.push(event);
+
+    /* TODO(siyiya): finish worker thread */
 }
 } // namespace aw_logger
 

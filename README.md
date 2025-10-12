@@ -2,8 +2,6 @@
 
 a low-latency, high-throughput and few-dependency logger for `AwakeLion Robot Lab` project. It's highly base on modern C++ standard library (C++17 and later).
 
-[![super-linter-cpp](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/super_linter_cpp.yml/badge.svg)](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/super_linter_cpp.yml)
-
 ---
 
 ## Features
@@ -15,7 +13,7 @@ flowchart LR
     A[User Log Macro] -->|LogEvent Instance| B[LogEventWrap]
     B -->|RAII| E[Logger]
 
-    E -->|submit| G{Level Filter}
+    E -->|Submit| G{Level Filter}
     G -->|Below Threshold| H[Discard]
     G -->|Pass| J((Ring Buffer<br/>Async Storage))
 
@@ -39,8 +37,6 @@ flowchart LR
     end
 
     J --> L
-
-
 ```
 
 ### Structure
@@ -66,9 +62,9 @@ flowchart LR
 
 a flexible and light-weighted JSON C++ library for log pattern customization. It's already inside `include/nlohmann` folder.
 
-### uwebsockets
+### uWebSockets
 
-a light-weighted C++ websocket library for monitoring log information so that you can watch debugs in real time remotely.
+a light-weighted C++ websocket header-only library for monitoring log information so that you can watch debugs in real time remotely.
 
 ## Installation
 
@@ -76,4 +72,9 @@ TBD.
 
 ## TODO
 
-please see [TODO](./.todo).
+- [X] support componentFactory class which is used to manage component registration. @done(25-10-11 23:19)
+- [X] support loggerManager singleton class to manager loggers in multi-threads. @done(25-10-11 23:19)
+- [ ] process ringbuffer load test and appenders latency test. @started(25-10-11 23:19) @high
+- [ ] support `%` as format specifier in formatter class. @started(25-10-12 15:29) @high
+- [ ] support websocket for monitoring log information in real time, considering library as [uWebSockets](https://github.com/uNetworking/uWebSockets). @low
+- [ ] after load test, consider to support double ringbuffer to reduce lock time. @low

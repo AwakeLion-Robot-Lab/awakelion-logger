@@ -109,7 +109,7 @@ public:
      * @brief Formatter constructor
      * @param factory component factory
      */
-    explicit Formatter(const ComponentFactory& factory);
+    explicit Formatter(ComponentFactory::ConstPtr& factory);
 
     /***
      * @brief format message while compiling
@@ -137,6 +137,15 @@ public:
     inline std::string vformat(std::string_view fmt, Args&&... args)
     {
         return std::vformat(fmt, std::make_format_args(std::forward<Args>(args)...));
+    }
+
+    /***
+     * @brief set component factory
+     * @param factory component factory
+     */
+    void setFactory(ComponentFactory::ConstPtr& factory)
+    {
+        factory_ = factory;
     }
 
     /***

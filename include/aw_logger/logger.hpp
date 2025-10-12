@@ -19,7 +19,8 @@
 #include <atomic>
 #include <condition_variable>
 #include <list>
-#include <mutex>
+#include <memory>
+#include <shared_mutex>
 #include <thread>
 
 // aw_logger library
@@ -31,13 +32,19 @@
  * @brief a low-latency, high-throughput and few-dependency logger for `AwakeLion Robot Lab` project
  * @note fundamental structure is inspired by [sylar logger](https://github.com/sylar-yin/sylar) and implement is
  * inspired by [log4j2](https://logging.apache.org/log4j/2.12.x/) and [minilog](https://github.com/archibate/minilog)
+ * @details
+ **********************************************
+ *  User Code(Frontend)       Logger(Backend) *
+ *    write threads            read threads   *
+ *      submit()                   pop()      *
+ **********************************************
  * @author jinhua "siyiovo" deng
  */
 namespace aw_logger {
 /***
  * @brief asynchronous logger class with a center ringbuffer
  * @details `std::enabled_shared_from_this` allow to manage the ONLY ONE share pointer of this class object
- * @details via `std::shared_from_this`
+ * @details via `std::shared_from_this`, which is CRTP
  */
 class Logger: public std::enable_shared_from_this<Logger> {
 public:
@@ -57,7 +64,7 @@ public:
     /***
      * @brief submit formatted log messages to ringbuffer
      */
-    void submit(LogEvent::ConstPtr& event);
+    void submit(LogEvent::Ptr& event);
 
     /***
      * @brief set log level threshold
@@ -67,6 +74,29 @@ public:
     {
         threshold_level_ = thres;
     }
+
+    /***
+     * @brief set formatter to logger
+     * @param formatter formatter to be set
+     */
+    void setFormatter(Formatter::Ptr& formatter);
+
+    /***
+     * @brief set appender to appender list
+     * @param appender appender to be added
+     */
+    void setAppender(BaseAppender::Ptr& appender);
+
+    /***
+     * @brief remove specific appender from appender list
+     * @param appender specific appender to be removed
+     */
+    void removeAppender(BaseAppender::Ptr& appender);
+
+    /***
+     * @brief clear all appenders inside appender list
+     */
+    void clearAppenders();
 
 private:
     /***
@@ -90,19 +120,35 @@ private:
     std::thread worker_;
 
     /***
-     * @brief logger mutex
-     */
-    std::mutex lgr_mtx_;
-
-    /***
      * @brief flag to indicate whether the logger is running
      */
     std::atomic<bool> running_;
 
     /***
-     * @brief condition variable to notify worker thread
+     * @brief condition variable to notify the ringbuffer inside worker thread
+     * @details
+     * given to condition variable may be spurious wakeup or false wakeup, so we need to set predicate in `wait` function
+     * and predication should validate the status of `running_` and whether ringbuffer has rest size
      */
     std::condition_variable cv_;
+
+    /***
+     * @brief mutex to manage condition variable
+     * @details
+     * this mutex is used to protect the condition variable, it MUST BE independent with `rw_mtx_`
+     */
+    std::mutex cv_mtx_;
+
+    /***
+     * @brief read and write logger mutex
+     * @note write operation is `std::shared_lock`(share mode), otherwise is `std::unique_lock`(unique mode) of read operation
+     * @details
+     * read operation of logger is attribute log messages to appenders list
+     * write operation of logger includes add or remove appender, log level threshold and formatter
+     * push message to ringbuffer is a kind of hot path, it should be lock-free ought to be faster
+     * so in fact, this shared mutex protect appender operation and it is not involved in ringbuffer operation
+     */
+    std::shared_mutex rw_mtx_;
 
     /***
      * @brief list of appenders
