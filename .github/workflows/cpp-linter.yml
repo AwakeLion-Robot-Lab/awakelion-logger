@@ -1,15 +1,20 @@
 name: cpp-linter
 on:
   pull_request:
-    branches: [main, master, develop]
-    paths: ['**.c', '**.cpp', '**.h', '**.hpp', '**.cc']
+    branches: [main]
+    paths: ["**.c", "**.cpp", "**.h", "**.hpp", "**.cc"]
   push:
-    branches: [main, master, develop]
-    paths: ['**.c', '**.cpp', '**.h', '**.hpp', '**.cc']
+    branches: [main]
+    paths: ["**.c", "**.cpp", "**.h", "**.hpp", "**.cc"]
 
 jobs:
   cpp-linter:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+
+    permissions:
+      contents: read
+      statuses: write
+
     steps:
       - name: checkout
         uses: actions/checkout@v5.0.0
@@ -18,14 +23,29 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: cpp-linter/cpp-linter-action@v2
+      - name: cpp linter
+        uses: cpp-linter/cpp-linter-action@v2.16.5
         id: linter
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          style: 'file'  # Use .clang-format config file.
-          tidy-checks: '-*' # disable clang-tidy checks.
+          style: "file" # Use .clang-format config file.
+          tidy-checks: "-*" # disable clang-tidy checks.
 
       - name: validation
         if: steps.linter.outputs.clang-format-checks-failed > 0
         run: echo "Linting issues failed!"
+
+      - name: Commit and push linting fixes
+        # Run only on:
+        # - Pull requests
+        # - Not on the default branch
+        if: >
+          github.event_name == 'pull_request' &&
+          github.ref_name != github.event.repository.default_branch
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          branch: ${{ github.event.pull_request.head.ref || github.head_ref || github.ref }}
+          commit_message: "super-linter: fix linting issues"
+          commit_user_name: super-linter
+          commit_user_email: super-linter@super-linter.dev

@@ -2,7 +2,7 @@
 
 a low-latency, high-throughput and few-dependency logger for `AwakeLion Robot Lab` project. It's highly base on modern C++ standard library (C++20).
 
-[![super-linter-cpp](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/super_linter_cpp.yml/badge.svg)](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/super_linter_cpp.yml)
+[![cpp-linter](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/cpp-linter.yml/badge.svg?branch=main)](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/cpp-linter.yml)
 
 ---
 
@@ -48,7 +48,7 @@ flowchart LR
 
 ### Core of asynchronous
 
-* the core of implementation about asynchronous is ringbuffer, which is lock-free, mirrored index memory and no pow-of-2 limitation. I take up a lot of reference below:
+* the core of implementation about asynchronous is ringbuffer, which is lock-free, mirrored index memory and no pow-of-2 limitation. I take in a lot of reference below:
 
 > * [kfifo](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/lib/kfifo.c) for mirrored index memory.
 > * [simple_ringbuffer](https://github.com/bobwenstudy/simple_ringbuffer) for no pow-of-2 limitation.
