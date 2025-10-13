@@ -7,13 +7,14 @@ on:
     branches: [main]
     paths: ["**.c", "**.cpp", "**.h", "**.hpp", "**.cc"]
 
+permissions:
+  pull-requests: read
+  contents: write
+  statuses: write
+
 jobs:
   cpp-linter:
     runs-on: ubuntu-22.04
-
-    permissions:
-      contents: read
-      statuses: write
 
     steps:
       - name: checkout
@@ -31,6 +32,11 @@ jobs:
         with:
           style: "file" # Use .clang-format config file.
           tidy-checks: "-*" # disable clang-tidy checks.
+          file-annotations: "true" # Enable file annotations.
+          # only 'update' a single comment in a pull request thread.
+          thread-comments: ${{ github.event_name == 'pull_request' && 'update' }}
+          step-summary: "true" # Add a job step summary with results.
+          format-review: "true" # Enable format review.
 
       - name: validation
         if: steps.linter.outputs.clang-format-checks-failed > 0
