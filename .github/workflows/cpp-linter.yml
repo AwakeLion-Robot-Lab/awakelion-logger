@@ -1,0 +1,31 @@
+name: cpp-linter
+on:
+  pull_request:
+    branches: [main, master, develop]
+    paths: ['**.c', '**.cpp', '**.h', '**.hpp', '**.cc']
+  push:
+    branches: [main, master, develop]
+    paths: ['**.c', '**.cpp', '**.h', '**.hpp', '**.cc']
+
+jobs:
+  cpp-linter:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v5.0.0
+        with:
+          # get all the branches and tags
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: cpp-linter/cpp-linter-action@v2
+        id: linter
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          style: 'file'  # Use .clang-format config file.
+          tidy-checks: '-*' # disable clang-tidy checks.
+
+      - name: validation
+        if: steps.linter.outputs.clang-format-checks-failed > 0
+        run: echo "Linting issues failed!"
