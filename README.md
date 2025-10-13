@@ -1,6 +1,6 @@
 # Awakelion-Logger
 
-a low-latency, high-throughput and few-dependency logger for `AwakeLion Robot Lab` project. It's highly base on modern C++ standard library (C++20).
+A low-latency, high-throughput and few-dependency logger for `AwakeLion Robot Lab` project. It's highly base on modern C++ standard library (C++20).
 
 [![cpp-linter](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/cpp-linter.yml/badge.svg?branch=main)](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/cpp-linter.yml)
 
@@ -44,19 +44,61 @@ flowchart LR
 ### Structure
 
 * Awakelion-Logger is based on async-logger(MPSC) and sync-appender(SPSC) mode, which is inspired from [log4j2](https://logging.apache.org/log4j/2.12.x/).
-* whole strcuture is based on [sylar-logger](https://github.com/sylar-yin/sylar/blob/master/sylar%2Flog.h), which means that use logger manager singleton class to manage multi-loggers in multi-threads. besides, modern c++ function is inspired from [minilog](https://github.com/archibate/minilog) and [fmtlib](https://github.com/fmtlib).
+* Whole strcuture is based on [sylar-logger](https://github.com/sylar-yin/sylar/blob/master/sylar%2Flog.h), which means that use logger manager singleton class to manage multi-loggers in multi-threads. Besides, modern c++ function is inspired from [minilog](https://github.com/archibate/minilog) and [fmtlib](https://github.com/fmtlib).
 
 ### Core of asynchronous
 
-* the core of implementation about asynchronous is ringbuffer, which is lock-free, mirrored index memory and no pow-of-2 limitation. I take in a lot of reference below:
+* The core of implementation about asynchronous is MPMC ringbuffer, which is lock-free and with mirrored index memory. I take in a lot of reference below:
 
 > * [kfifo](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/lib/kfifo.c) for mirrored index memory.
-> * [simple_ringbuffer](https://github.com/bobwenstudy/simple_ringbuffer) for no pow-of-2 limitation.
-> * [c++ ringbuffer](https://b23.tv/W79kaS4) for lock-free (atomic manipulation and memory order).
-> * also use `std::allocator` as standard of memory allocation, like placement new and buffer destruct.
+> * Deeply inspired by  [Vyukov&#39;s MPMCQueue](https://www.1024cores.net/home/lock-free-algorithms/queues/bounded-mpmc-queue), which is a better way to adapt MPMC model.
+> * Use `std::allocator` as standard of memory allocation, like placement new and buffer destruct.
 
-> [!CAUTION]
-> for now, the ringbuffer just for **SPSC in different threads** because CAS operation is too complicate for me :<. However, there is a better way to do it within [Vyukov&#39;s MPMCQueue](https://www.1024cores.net/home/lock-free-algorithms/queues/bounded-mpmc-queue), and I found a helpful [blog](https://int08h.com/post/ode-to-a-vyukov-queue/) to explain it.
+> [!NOTE]
+> I already found a helpful [blog](https://int08h.com/post/ode-to-a-vyukov-queue/) to explain Vyukov's MPMCQueue, here i provide my thought.
+>
+> **The core of Vyukov's MPMCQueue is the sequence of cell**, here cell is the base unit of ringbuffer, which includes sequence and input `DataT` data.
+>
+> In fact, sequence is an atomic counter, according to source code, **it indicates the status of between cell and operator thread**.
+>
+> #### Key parameters
+>
+> * `curr_wIdx / curr_rIdx`: **write index / read index in current thread.**
+> * `curr_seq`: **sequence of current cell in current thread.**
+>
+> #### How it update
+>
+> |                      |                  `push()`                  |                          `pop()`                          |
+> | :-------------------: | :------------------------------------------: | :----------------------------------------------------------: |
+> | **description** | add to `curr_wIdx + 1`, move to next cell. | add to `curr_rIdx + capacity`, move to next mirror memory. |
+> | **expression** |         `curr_seq = curr_wIdx + 1`         |             `curr_seq = curr_rIdx + mask_ + 1`             |
+>
+> #### Constructor
+>
+> ```cpp
+> buffer_ = allocator_trait::allocate(alloc_, r_capacity);
+>     for (size_t i = 0; i < r_capacity; i++)
+>     {
+>         /* construct empty cell */
+>         allocator_trait::construct(alloc_, buffer_ + i);
+>         /* initialize sequence */
+>         (buffer_ + i)->sequence_.store(i, std::memory_order_relaxed);
+>     }
+> ```
+>
+> #### Producer perspective
+>
+> |        status        |                                                     available                                                     |                             pending                             |                                                                             unavailable                                                                             |
+> | :-------------------: | :----------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
+> | **description** | default to its index,<br />producer can write.<br />after update, it signal<br />to consumer for `ready` status. | occupied by another producer,<br />wait for write and try again. | this cell already wrap-around(property of unsigned int),<br />but write index not, that means all cells are written,<br /> which also means the ringbuffer is full. |
+> | **expression** |                                                  `== curr_wIdx`                                                  |                         `> curr_wIdx`                         |                                                                           `< curr_wIdx`                                                                           |
+>
+> #### Consumer perspective
+>
+> |        status        |                             available                             |                                                     pending                                                     |                                 unavailable                                 |
+> | :-------------------: | :---------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------: |
+> | **description** | equal to value<br /> after `push()` update,<br />time to read. | this cell has already<br />read, try to load <br />`curr_rIdx` status again<br />for a next read operation. | data in all cells have been read,<br />which means the ringbuffer is empty. |
+> | **expression** |                       `== curr_rIdx + 1`                       |                                               `> curr_rIdx + 1`                                               |                             `< curr_rIdx + 1`                             |
 
 ## Dependencies
 

@@ -40,7 +40,7 @@ namespace aw_logger {
 class ComponentFactory {
 public:
     using Ptr = std::shared_ptr<ComponentFactory>;
-    using ConstPtr = const std::shared_ptr<ComponentFactory>;
+    using ConstPtr = std::shared_ptr<const ComponentFactory>;
 
     /***
      * @brief default constructor
@@ -139,7 +139,7 @@ public:
      * @brief Formatter constructor
      * @param factory component factory
      */
-    explicit Formatter(ComponentFactory::ConstPtr& factory);
+    explicit Formatter(const ComponentFactory::Ptr& factory);
 
     /***
      * @brief format message while compiling
@@ -173,7 +173,7 @@ public:
      * @brief set component factory
      * @param factory component factory
      */
-    void setFactory(ComponentFactory::ConstPtr& factory)
+    void setFactory(const ComponentFactory::Ptr& factory)
     {
         factory_ = factory;
     }
@@ -185,16 +185,14 @@ public:
      * @return formatted log message
      * @details the format is able to be customized in `logger_settings.json`
      */
-    std::string formatComponents(
-        LogEvent::ConstPtr& event,
-        const std::map<std::string, std::string>& components
-    );
+    std::string
+    formatComponents(LogEvent::Ptr& event, const std::map<std::string, std::string>& components);
 
     /***
      * @brief get registered components map
      * @return registered components map
      */
-    auto getRegisteredComponents() -> std::map<std::string, std::string>
+    auto getRegisteredComponents() -> const std::map<std::string, std::string>&
     {
         return factory_->registered_components_;
     }
@@ -218,7 +216,7 @@ private:
      * @param event log event
      * @return formatted log message
      */
-    std::string formatMsg(LogEvent::ConstPtr& event)
+    std::string formatMsg(LogEvent::Ptr& event)
     {
         return event->getMsg();
     }
@@ -228,7 +226,7 @@ private:
      * @param event log event
      * @return formatted log level
      */
-    std::string formatLevel(LogEvent::ConstPtr& event)
+    std::string formatLevel(LogEvent::Ptr& event)
     {
         return Formatter::vformat("[{}]", event->getLogLevelString());
     }
@@ -238,7 +236,7 @@ private:
      * @param event log event
      * @return formatted log timestamp
      */
-    std::string formatTimestamp(LogEvent::ConstPtr& event)
+    std::string formatTimestamp(LogEvent::Ptr& event)
     {
         return Formatter::vformat("[{}]", event->getTimestamp());
     }
@@ -248,13 +246,13 @@ private:
      * @param format source location format
      * @return formatted log source location
      */
-    std::string formatSourceLocation(LogEvent::ConstPtr& event, std::string_view format);
+    std::string formatSourceLocation(LogEvent::Ptr& event, std::string_view format);
 
     /***
      * @brief format log thread id
      * @return formatted log thread id
      */
-    std::string formatThreadId(LogEvent::ConstPtr& event)
+    std::string formatThreadId(LogEvent::Ptr& event)
     {
         return Formatter::vformat("[tid: {}]", event->getThreadId());
     }

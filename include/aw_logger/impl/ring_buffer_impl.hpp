@@ -22,69 +22,47 @@ namespace aw_logger {
 template<typename DataT, typename Allocator>
 inline RingBuffer<DataT, Allocator>::RingBuffer(size_t capacity):
     buffer_(nullptr),
-    alloc_(),
+    alloc_(allocator_type()),
     wIdx_(0),
     rIdx_(0),
-    capacity_(0),
-    mirror_capacity_(0)
+    mask_(roundUpPow2(capacity) - 1)
 {
     /* judge size */
-    if (capacity == 0)
-        throw aw_logger::invalid_parameter("capacity must be greater than 0!");
+    const size_t r_capacity = mask_ + 1;
+    if (r_capacity < 2)
+        throw aw_logger::invalid_parameter("capacity must be greater than 1!");
 
-    const auto e_size = sizeof(DataT);
-    if (capacity > (std::numeric_limits<size_t>::max() / e_size))
+    const size_t e_size = sizeof(DataT);
+    if (r_capacity > (std::numeric_limits<size_t>::max() / e_size))
         throw aw_logger::invalid_parameter("requested capacity too large!");
 
-    /* align storage to 4 bytes */
-    const auto aligned_storage = ALIGN4(capacity * e_size);
-    capacity_ = aligned_storage / e_size;
-
-    if ((capacity_ << 1) > std::numeric_limits<size_t>::max())
-        throw aw_logger::invalid_parameter("requested mirror capacity too large!");
-    mirror_capacity_ = capacity_ << 1;
-
-    /* allocate memory */
-    buffer_ = allocator_trait::allocate(alloc_, capacity_);
+    /* allocate buffer */
+    buffer_ = allocator_trait::allocate(alloc_, r_capacity);
+    for (size_t i = 0; i < r_capacity; i++)
+    {
+        /* construct empty cell */
+        allocator_trait::construct(alloc_, buffer_ + i);
+        /* initialize sequence */
+        (buffer_ + i)->sequence_.store(i, std::memory_order_relaxed);
+    }
+    /* initialize write/read index */
+    wIdx_.store(0, std::memory_order_relaxed);
+    rIdx_.store(0, std::memory_order_relaxed);
 }
 
 template<typename DataT, typename Allocator>
 RingBuffer<DataT, Allocator>::~RingBuffer()
 {
-    const size_t curr_wIdx = wIdx_.load(std::memory_order_acquire);
-    const size_t curr_rIdx = rIdx_.load(std::memory_order_acquire);
-    const size_t used = (curr_wIdx >= curr_rIdx) ? (curr_wIdx - curr_rIdx)
-                                                 : (curr_wIdx + mirror_capacity_ - curr_rIdx);
-
-    // if ringbuffer is not empty
-    if (used > 0)
-    {
-        auto head = toPtr(curr_rIdx);
-        const size_t no_wrap_mem = std::min(used, capacity_ - head);
-        const size_t wrap_mem = used - no_wrap_mem;
-
-        /* destroy no-wrap memory */
-        for (size_t i = 0; i < no_wrap_mem; i++)
-        {
-            allocator_trait::destroy(alloc_, buffer_ + head + i);
-        }
-
-        /* destroy wrap memory if indices did */
-        if (wrap_mem > 0)
-        {
-            for (size_t i = 0; i < wrap_mem; i++)
-            {
-                allocator_trait::destroy(alloc_, buffer_ + i);
-            }
-        }
-    }
-
-    /* free ringbuffer */
     if (buffer_ != nullptr)
     {
-        allocator_trait::deallocate(alloc_, buffer_, capacity_);
-        capacity_ = 0;
-        mirror_capacity_ = 0;
+        const size_t capacity = mask_ + 1;
+        /* free cells */
+        for (size_t i = 0; i < capacity; ++i)
+        {
+            allocator_trait::destroy(alloc_, buffer_ + i);
+        }
+        /* free memory of buffer */
+        allocator_trait::deallocate(alloc_, buffer_, capacity);
     }
 }
 
@@ -92,80 +70,87 @@ template<typename DataT, typename Allocator>
 template<typename U>
 bool RingBuffer<DataT, Allocator>::push(U&& data)
 {
-    try
-    {
-        /* check if ring buffer is valid */
-        if (buffer_ == nullptr || capacity_ == 0)
-            return false;
-
-        /* check if the buffer is full, NOTE here input data will be discarded instead of force-covering */
-
-        // here use `std::memory_order_relaxed` 'cause ONLY producer can update write index
-        const size_t curr_wIdx = wIdx_.load(std::memory_order_relaxed);
-        // here use `std::memory_order_acquire` 'cause ONLY consumer can update read index
-        const size_t curr_rIdx = rIdx_.load(std::memory_order_acquire);
-        const size_t used = (curr_wIdx >= curr_rIdx) ? (curr_wIdx - curr_rIdx)
-                                                     : (curr_wIdx + mirror_capacity_ - curr_rIdx);
-
-        if (used >= capacity_)
-            throw aw_logger::ringbuffer_exception("ring buffer is full!");
-    } catch (const std::exception& ex)
-    {
-        std::cerr << ex.what() << '\n' << std::endl;
+    /* check if ring buffer is valid */
+    if (buffer_ == nullptr)
         return false;
+
+    /* here use `std::memory_order_relaxed` 'cause ONLY producer can update write index */
+    size_t curr_wIdx = wIdx_.load(std::memory_order_relaxed);
+    cell_t* curr_cell;
+
+    /* loop until ready for write */
+    while (true)
+    {
+        curr_cell = buffer_ + toPtr(curr_wIdx);
+
+        /* we gotta get this sequence number, so this is a read operation, use `std::memory_order_acquire` */
+        size_t curr_seq = curr_cell->sequence_.load(std::memory_order_acquire);
+        /* `intptr_t` can convert to sign type, in order to detect overflow */
+        intptr_t used_size = static_cast<intptr_t>(curr_seq) - static_cast<intptr_t>(curr_wIdx);
+
+        /* this cell is ready for write */
+        if (used_size == 0)
+        {
+            /* wIdx_ update to next index if equal to curr_wIdx */
+            if (wIdx_.compare_exchange_weak(curr_wIdx, curr_wIdx + 1, std::memory_order_relaxed))
+                break;
+        }
+        /**
+         * this cell has already been written BUT NOT read(read operation + (mask + 1))
+         * which means ringbuffer is full
+        */
+        else if (used_size < 0)
+            return false;
+        /* another write thread is writing this cell, load again and retry */
+        else
+            curr_wIdx = wIdx_.load(std::memory_order_relaxed);
     }
 
-    /**
-     *  below is the normal way for placement new
-     *  new& buffer_[wPtr] DataT(std::forward<U>(data));
-     *  we use std::allocator::construct() instead
-     * NOTE that the second parameter is same to &buffer_[wPtr], but prior is faster 'cause operator[] also take some time
-    */
-    auto wPtr = toPtr(curr_wIdx);
-    allocator_trait::construct(alloc_, buffer_ + wPtr, std::forward<U>(data));
-
-    /* update atomic write index */
-    size_t next_wIdx = curr_wIdx + 1;
-    if (next_wIdx >= mirror_capacity_) // here use `capacity_ << 1` instead of `2 * capacity_`
-        next_wIdx -= mirror_capacity_; // wrap-around
-    wIdx_.store(next_wIdx, std::memory_order_release);
+    /* update members of current cell */
+    curr_cell->data_ = std::forward<U>(data);
+    /* write operation；sequence = curr_wIdx + 1 */
+    curr_cell->sequence_.store(curr_wIdx + 1, std::memory_order_release);
 
     return true;
 }
 
 template<typename DataT, typename Allocator>
-bool RingBuffer<DataT, Allocator>::pop(value_type& data)
+bool RingBuffer<DataT, Allocator>::pop(value_t& data)
 {
-    try
-    {
-        /* check if ring buffer is valid */
-        if (buffer_ == nullptr || capacity_ == 0)
-            throw aw_logger::ringbuffer_exception("ring buffer is not initialized!");
-
-        /* check if ring buffer is empty */
-        const size_t curr_rIdx = rIdx_.load(std::memory_order_relaxed);
-        const size_t curr_wIdx = wIdx_.load(std::memory_order_acquire);
-        const size_t used = (curr_wIdx >= curr_rIdx) ? (curr_wIdx - curr_rIdx)
-                                                     : (curr_wIdx + mirror_capacity_ - curr_rIdx);
-
-        if (used == 0)
-            throw aw_logger::ringbuffer_exception("ring buffer is empty!");
-
-    } catch (const std::exception& ex)
-    {
-        std::cerr << ex.what() << '\n' << std::endl;
+    /* check if ring buffer is valid */
+    if (buffer_ == nullptr)
         return false;
+
+    /* here use `std::memory_order_acquire` 'cause ONLY consumer can update read index */
+    size_t curr_rIdx = rIdx_.load(std::memory_order_relaxed);
+    cell_t* curr_cell;
+
+    /* loop until ready for read */
+    while (true)
+    {
+        curr_cell = buffer_ + toPtr(curr_rIdx);
+
+        size_t curr_seq = curr_cell->sequence_.load(std::memory_order_acquire);
+        /* here curr_rIdx + 1 means EXPECTED after write operation */
+        intptr_t used_size = static_cast<intptr_t>(curr_seq) - static_cast<intptr_t>(curr_rIdx + 1);
+
+        if (used_size == 0)
+        {
+            /* rIdx_ update to next index if equal to curr_rIdx */
+            if (rIdx_.compare_exchange_weak(curr_rIdx, curr_rIdx + 1, std::memory_order_relaxed))
+                break;
+        }
+        /* here means all the data has been read */
+        else if (used_size < 0)
+            return false;
+        /* producer is writing */
+        else
+            curr_rIdx = rIdx_.load(std::memory_order_relaxed);
     }
 
-    /* move and destroy */
-    auto rPtr = toPtr(curr_rIdx);
-    data = std::move(buffer_[rPtr]);
-    allocator_trait::destroy(alloc_, buffer_ + rPtr);
-
-    size_t next_rIdx = curr_rIdx + 1;
-    if (next_rIdx >= mirror_capacity_)
-        next_rIdx -= mirror_capacity_;
-    rIdx_.store(next_rIdx, std::memory_order_release);
+    data = std::move(curr_cell->data_);
+    /* read operation；sequence = curr_wIdx + mask_ + 1 */
+    curr_cell->sequence_.store(curr_rIdx + mask_ + 1, std::memory_order_release);
 
     return true;
 }
@@ -175,8 +160,7 @@ inline const size_t RingBuffer<DataT, Allocator>::getSize() const noexcept
 {
     const size_t curr_wIdx = wIdx_.load(std::memory_order_acquire);
     const size_t curr_rIdx = rIdx_.load(std::memory_order_acquire);
-    return (curr_wIdx >= curr_rIdx) ? (curr_wIdx - curr_rIdx)
-                                    : (curr_wIdx + mirror_capacity_ - curr_rIdx);
+    return (curr_wIdx >= curr_rIdx) ? (curr_wIdx - curr_rIdx) : (curr_wIdx + mask_ + 1 - curr_rIdx);
 }
 
 } // namespace aw_logger

@@ -94,13 +94,13 @@ inline void ComponentFactory::registerComponents(const nlohmann::json& json)
     }
 }
 
-inline Formatter::Formatter(ComponentFactory::ConstPtr& factory)
+inline Formatter::Formatter(const ComponentFactory::Ptr& factory)
 {
     setFactory(factory);
 }
 
 std::string Formatter::formatComponents(
-    LogEvent::ConstPtr& event,
+    LogEvent::Ptr& event,
     const std::map<std::string, std::string>& components
 )
 {
@@ -174,8 +174,7 @@ inline std::string Formatter::formatColor(std::string_view format)
     return Formatter::format("\033[38;2;{};{};{}m", r, g, b);
 }
 
-inline std::string
-Formatter::formatSourceLocation(LogEvent::ConstPtr& event, std::string_view format)
+inline std::string Formatter::formatSourceLocation(LogEvent::Ptr& event, std::string_view format)
 {
     const auto& loc = event->getSourceLocation();
     std::string result;

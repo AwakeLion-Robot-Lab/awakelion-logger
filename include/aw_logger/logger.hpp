@@ -49,7 +49,7 @@ namespace aw_logger {
 class Logger: public std::enable_shared_from_this<Logger> {
 public:
     using Ptr = std::shared_ptr<Logger>;
-    using ConstPtr = const std::shared_ptr<Logger>;
+    using ConstPtr = std::shared_ptr<const Logger>;
 
     /***
      * @brief constructor
@@ -62,9 +62,19 @@ public:
     ~Logger();
 
     /***
+     * @brief start to run worker thread
+     */
+    void start();
+
+    /***
+     * @brief stop running worker thread
+     */
+    void stop();
+
+    /***
      * @brief submit formatted log messages to ringbuffer
      */
-    void submit(LogEvent::Ptr& event);
+    void submit(const LogEvent::Ptr& event);
 
     /***
      * @brief set log level threshold
@@ -79,19 +89,19 @@ public:
      * @brief set formatter to logger
      * @param formatter formatter to be set
      */
-    void setFormatter(Formatter::ConstPtr& formatter);
+    void setFormatter(const Formatter::Ptr& formatter);
 
     /***
      * @brief set appender to appender list
      * @param appender appender to be added
      */
-    void setAppender(BaseAppender::ConstPtr& appender);
+    void setAppender(const BaseAppender::Ptr& appender);
 
     /***
      * @brief remove specific appender from appender list
      * @param appender specific appender to be removed
      */
-    void removeAppender(BaseAppender::ConstPtr& appender);
+    void removeAppender(const BaseAppender::Ptr& appender);
 
     /***
      * @brief clear all appenders inside appender list

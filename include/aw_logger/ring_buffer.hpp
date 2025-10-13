@@ -15,12 +15,10 @@
 #ifndef RING_BUFFER_HPP
 #define RING_BUFFER_HPP
 
-// C standard library
-#include <stddef.h>
-#include <stdio.h>
-
 // C++ standard library
 #include <atomic>
+#include <cassert>
+#include <cstdint>
 #include <memory>
 
 // aw_logger library
@@ -34,18 +32,15 @@
  */
 namespace aw_logger {
 /***
- * @brief a lock-free ring buffer without `std::mutex` and mirror MSB, also allocate memory via `std::allocator`
+ * @brief a lock-free MPMC ring buffer without `std::mutex` and mirror MSB but with CAS opertaion, support `std::allocator` to manage memory
  * @tparam DataT data type
- * @tparam Allocator `std::allocator` type
- * @details inspired by https://github.com/bobwenstudy/simple_ringbuffer and Linux kfifo(it's lock-free but its capacity must be
- * power of 2)
+ * @tparam Allocator allocator type
+ * @details inspired by [Vyukov​'​s MPMCQueue](https://www.1024cores.net/home/lock-free-algorithms/queues/bounded-mpmc-queue) and Linux kfifo
  */
 template<typename DataT, typename Allocator = std::allocator<DataT>>
 class RingBuffer {
 public:
-    using value_type = DataT;
-    using allocator_type = Allocator;
-    using allocator_trait = typename std::allocator_traits<allocator_type>;
+    using value_t = DataT;
 
     /***
      * @brief constructor
@@ -72,7 +67,7 @@ public:
      * @brief pop out data from ring buffer, FIFO
      * @param data pop-out data
      */
-    bool pop(value_type& data);
+    bool pop(value_t& data);
 
     /***
      * @brief get capacity of ring buffer
@@ -80,7 +75,7 @@ public:
      */
     inline const size_t getCapacity() const noexcept
     {
-        return capacity_;
+        return mask_ + 1;
     }
 
     /***
@@ -95,17 +90,45 @@ public:
      */
     inline const size_t getRestSize() const noexcept
     {
-        return capacity_ - getSize();
+        return mask_ + 1 - getSize();
     }
 
 private:
     /***
-     * @brief buffer of specific type
+     * @brief cell structure for ring buffer
+     * @param sequence_ atomic sequence counter
+     * @param data_ data of specific type
+     * @details
+     * [IMPORTANT]:
+     * sequence is a counter, after write/read operation, it will be updated
+     * (1) if according index equals to sequence, it means this cell is ready for write
+     * (2) if according index + 1 equals to sequence, it means this cell already written,
+     *     which means this cell is ready for read
+     *     so the relation of write/read index and sequence is like `std::condition_variable`, after write/read operation,
+     *     we can know the state of cell by comparing index and sequence
+     * (3) if according index + n (n > 1) equals to sequence, it means this cell has already handled by another thread
+     *     but why?
+     *     push operation will add sequence by 1
+     *     pop operation will add sequence by mask_ + 1, which means in next round
+     *     you can quickly figure out whether in next round via pow of 2 mask
+     *     so if sequence is greater than index + n, it means this cell has already write and read by another thread
      */
-    value_type* buffer_;
+    struct cell_t {
+        std::atomic<size_t> sequence_;
+        value_t data_;
+    };
+
+    /* rebind template of allocator */
+    using allocator_type = typename std::allocator_traits<Allocator>::template rebind_alloc<cell_t>;
+    using allocator_trait = typename std::allocator_traits<allocator_type>;
 
     /***
-     * @brief allocator
+     * @brief const buffer of cells
+     */
+    cell_t* const buffer_;
+
+    /***
+     * @brief allocator to manage memory
      */
     allocator_type alloc_;
 
@@ -122,48 +145,39 @@ private:
     alignas(64) std::atomic<size_t> rIdx_;
 
     /***
-     * @brief the number of specific type of ring buffer
+     * @brief capacity mask for fast modulo operation
      */
-    size_t capacity_;
+    const size_t mask_;
 
     /***
-     * @brief mirror capacity, which is `2 * capacity_`
+     * @brief round up to power of 2
+     * @param num input number
+     * @return rounded number
      */
-    size_t mirror_capacity_;
-
-#ifndef ALIGN4
-    /***
-     * @brief Round up to nearest multiple of 4, for unsigned integers
-     * @details
-     *   copied from https://github.com/bobwenstudy/simple_ringbuffer
-     *   The addition of 3 forces x into the next multiple of 4. This is responsible
-     *   for the rounding in the the next step, to be Up.
-     *   For ANDing of ~3: We observe y & (~3) == (y>>2)<<2, and we recognize
-     *   (y>>2) as a floored division, which is almost undone by the left-shift. The
-     *   flooring can't be undone so have achieved a rounding.
-     *
-     *   Examples:
-     *    MROUND( 0) =  0
-     *    MROUND( 1) =  4
-     *    MROUND( 2) =  4
-     *    MROUND( 3) =  4
-     *    MROUND( 4) =  4
-     *    MROUND( 5) =  8
-     *    MROUND( 8) =  8
-     *    MROUND( 9) = 12
-     *    MROUND(13) = 16
-     */
-    #define ALIGN4(x) (((uint32_t)(x) + 3u) & (~((uint32_t)3)))
-#endif //! ALIGN4
+    inline size_t roundUpPow2(size_t num) const noexcept
+    {
+        num--;
+        num |= num >> 1;
+        num |= num >> 2;
+        num |= num >> 4;
+        num |= num >> 8;
+        num |= num >> 16;
+#if SIZE_MAX > UINT32_MAX
+        num |= num >> 32;
+#endif
+        num++;
+        return num;
+    }
 
     /***
-     * @brief index to pointer which in real physical memory
-     * @param idx index
-     * @details based on the way of mirror memory and wrapping of unsigned int type, index is in range of [0, 2 * capacity - 1], and pointer is in range of [0, capacity - 1]
+     * @brief convert index to pointer
+     * @param idx input index
+     * @return real index in buffer
+     * @details JUST for power of 2 mask!
      */
     inline const size_t toPtr(size_t idx) const noexcept
     {
-        return (size_t)((idx >= capacity_) ? (idx - capacity_) : idx);
+        return idx & mask_;
     }
 };
 } // namespace aw_logger

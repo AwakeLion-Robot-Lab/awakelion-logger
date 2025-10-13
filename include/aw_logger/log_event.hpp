@@ -100,6 +100,11 @@ public:
     using Ptr = std::shared_ptr<LogEvent>;
     using ConstPtr = std::shared_ptr<const LogEvent>;
 
+    /***
+     * @brief constructor
+     * @param level log level
+     * @param wrapped_msg wrapped message with local source location
+     */
     explicit LogEvent(LogLevel::level level, LocalSourceLocation<std::string> wrapped_msg);
 
     /***

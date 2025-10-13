@@ -37,20 +37,20 @@ namespace aw_logger {
 class BaseAppender {
 public:
     using Ptr = std::shared_ptr<BaseAppender>;
-    using ConstPtr = const std::shared_ptr<BaseAppender>;
+    using ConstPtr = std::shared_ptr<const BaseAppender>;
 
     /***
      * @brief constructor
      * @param flushInterval flush interval in milliseconds
      */
-    BaseAppender(int flushInterval);
+    explicit BaseAppender(int flushInterval);
 
     /***
-     * @brief virtual ouput function
+     * @brief virtual append function
      * @param logger logger
      * @param msg formatted log message
      */
-    virtual void output(Logger::ConstPtr& logger, std::string_view msg) = 0;
+    virtual void append(const Logger::Ptr& logger, std::string_view msg) = 0;
 
 private:
     /***
