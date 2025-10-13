@@ -210,7 +210,7 @@ Formatter::formatSourceLocation(LogEvent::ConstPtr& event, std::string_view form
     }
 
     result.append(format.data() + prev_pos, format.size() - prev_pos);
-    return result;
+    return Formatter::vformat("({})", result);
 }
 
 } // namespace aw_logger

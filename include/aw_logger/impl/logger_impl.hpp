@@ -35,6 +35,38 @@ inline Logger::~Logger()
         worker_.join();
 }
 
+inline void Logger::setFormatter(Formatter::ConstPtr& formatter)
+{
+    std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
+    if (formatter_ == nullptr)
+        formatter_ = formatter;
+}
+
+inline void Logger::setAppender(BaseAppender::ConstPtr& appender)
+{
+    std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
+    appenders_.emplace_back(appender);
+}
+
+inline void Logger::removeAppender(BaseAppender::ConstPtr& appender)
+{
+    std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
+    for (auto it = appenders_.begin(); it != appenders_.end(); it++)
+    {
+        if (*it == appender)
+        {
+            appenders_.erase(it);
+            break;
+        }
+    }
+}
+
+inline void Logger::clearAppenders()
+{
+    std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
+    appenders_.remove_if([&]() { return appenders_.size() != 0; });
+}
+
 void Logger::submit(LogEvent::Ptr& event)
 {
     if (event == nullptr)
@@ -49,6 +81,26 @@ void Logger::submit(LogEvent::Ptr& event)
     rb_.push(event);
 
     /* TODO(siyiya): finish worker thread */
+    while (running_.load())
+    {
+        /* weak pointer to avoid hanging pointer */
+        auto self = std::weak_ptr<Logger>(shared_from_this());
+        auto lock = self.lock();
+
+        std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
+        LogEvent::Ptr out_event;
+        if (rb_.pop(out_event))
+        {
+            auto fmt =
+                Formatter::formatComponents(out_event, formatter_->getRegisteredComponents());
+            for (auto& app: appenders_)
+            {
+                app->output(lock, fmt);
+                std::unique_lock<std::mutex> cv_lk(cv_mtx_);
+                cv_.wait(cv_lk, [&]() { return !running_.load() && rb_.getRestSize() != 0; });
+            }
+        }
+    }
 }
 } // namespace aw_logger
 

@@ -43,9 +43,16 @@ public:
     using ConstPtr = const std::shared_ptr<ComponentFactory>;
 
     /***
-     * @brief constructor
+     * @brief default constructor
+     * @details the component is loaded via `aw_logger_settings.json`
      */
     explicit ComponentFactory();
+
+    /***
+     * @brief runtime pattern parsing constructor
+     * @param pattern pattern divided by `%`
+     */
+    explicit ComponentFactory(std::string_view pattern);
 
     /***
      * @brief map of registered components
@@ -62,23 +69,40 @@ private:
     /***
      * @brief default log event format
      */
-    nlohmann::json default_json_ = { "log_event",
-                                     { { { "type", "timestamp" }, { "enabled", true } },
-                                       { { "type", "level" }, { "enabled", true } },
-                                       { { "type", "tid" }, { "enabled", true } },
-                                       { { "type", "loc" },
-                                         { "format", "[{file_name}:{function_name}:{line}]" },
-                                         { "enabled", true } },
-                                       { { "type", "msg" }, { "enabled", true } },
-                                       { { "type", "color" },
-                                         { "level_colors",
-                                           { { "debug", "white" },
-                                             { "info", "cyan" },
-                                             { "notice", "blue" },
-                                             { "warn", "yellow" },
-                                             { "error", "red" },
-                                             { "fatal", "magenta" } } },
-                                         { "enabled", true } } } };
+    const nlohmann::json default_json_ = { "log_event",
+                                           { { { "type", "timestamp" }, { "enabled", true } },
+                                             { { "type", "level" }, { "enabled", true } },
+                                             { { "type", "tid" }, { "enabled", true } },
+                                             { { "type", "loc" },
+                                               { "format", "[{file_name}:{function_name}:{line}]" },
+                                               { "enabled", true } },
+                                             { { "type", "msg" }, { "enabled", true } },
+                                             { { "type", "color" },
+                                               { "level_colors",
+                                                 { { "debug", "white" },
+                                                   { "info", "cyan" },
+                                                   { "notice", "blue" },
+                                                   { "warn", "yellow" },
+                                                   { "error", "red" },
+                                                   { "fatal", "magenta" } } },
+                                               { "enabled", true } } } };
+
+    /***
+     * @brief parsed pattern
+     */
+    std::string parsed_pattern_;
+
+    /***
+     * @brief default pattern
+     * @details
+     * %T timestamp
+     * %L log level
+     * %t thread id
+     * %l source location
+     * %a tab
+     * %s log message
+     */
+    const std::string default_pattern_ = "%T%L%t%l%a%s";
 
     /***
      * @brief load components from setting
@@ -94,6 +118,12 @@ private:
      * @note the format of component is defined in `config/aw_logger_settings.json`
      */
     void registerComponents(const nlohmann::json& json);
+
+    /***
+     * @brief parse patterns
+     * @param pattern pattern
+     */
+    void parsePatterns(std::string_view pattern);
 };
 
 /***
@@ -114,7 +144,7 @@ public:
     /***
      * @brief format message while compiling
      * @tparam Args type of universal parameter pack
-     * @param fmt formatted message
+     * @param fmt unformatted message
      * @param args universal parameter pack
      * @note inspired by [fmtlib](https://github.com/fmtlib)
      */
@@ -130,7 +160,7 @@ public:
     /***
      * @brief format message while runtime
      * @tparam Args type of universal parameter pack
-     * @param fmt formatted message
+     * @param fmt unformatted message
      * @param args universal parameter pack
      */
     template<typename... Args>
@@ -200,7 +230,7 @@ private:
      */
     std::string formatLevel(LogEvent::ConstPtr& event)
     {
-        return Formatter::vformat("[" + event->getLogLevelString() + "]");
+        return Formatter::vformat("[{}]", event->getLogLevelString());
     }
 
     /***
@@ -210,7 +240,7 @@ private:
      */
     std::string formatTimestamp(LogEvent::ConstPtr& event)
     {
-        return "[" + Formatter::vformat("[{}]", event->getTimestamp()) + "]";
+        return Formatter::vformat("[{}]", event->getTimestamp());
     }
 
     /***
@@ -226,7 +256,7 @@ private:
      */
     std::string formatThreadId(LogEvent::ConstPtr& event)
     {
-        return "[tid: " + Formatter::vformat("{}", event->getThreadId()) + "]";
+        return Formatter::vformat("[tid: {}]", event->getThreadId());
     }
 };
 

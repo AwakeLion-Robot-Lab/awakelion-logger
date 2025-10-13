@@ -79,19 +79,19 @@ public:
      * @brief set formatter to logger
      * @param formatter formatter to be set
      */
-    void setFormatter(Formatter::Ptr& formatter);
+    void setFormatter(Formatter::ConstPtr& formatter);
 
     /***
      * @brief set appender to appender list
      * @param appender appender to be added
      */
-    void setAppender(BaseAppender::Ptr& appender);
+    void setAppender(BaseAppender::ConstPtr& appender);
 
     /***
      * @brief remove specific appender from appender list
      * @param appender specific appender to be removed
      */
-    void removeAppender(BaseAppender::Ptr& appender);
+    void removeAppender(BaseAppender::ConstPtr& appender);
 
     /***
      * @brief clear all appenders inside appender list
