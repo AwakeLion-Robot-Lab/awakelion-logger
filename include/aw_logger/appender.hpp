@@ -16,6 +16,9 @@
 #define BASE_APPENDER_HPP
 
 // C++ standard library
+#include <memory>
+#include <mutex>
+#include <string_view>
 #include <syncstream>
 
 // aw_logger library
@@ -43,34 +46,34 @@ public:
      * @brief constructor
      * @param flushInterval flush interval in milliseconds
      */
-    explicit BaseAppender(int flushInterval);
+    explicit BaseAppender() {}
 
     /***
      * @brief virtual append function
      * @param logger logger
      * @param msg formatted log message
      */
-    virtual void append(const Logger::Ptr& logger, std::string_view msg) = 0;
+    virtual void append(std::string_view msg) = 0;
 
-private:
+protected:
     /***
      * @brief appender mutex
      */
     std::mutex app_mtx_;
+};
 
+class ConsoleAppender: public BaseAppender {
+public:
+    explicit ConsoleAppender(): sync_out_(std::cout) {}
+
+    virtual void append(std::string_view msg) override;
+
+private:
     /***
      * @brief synchronized output stream
      */
     std::osyncstream sync_out_;
-
-    /***
-     * @brief flush interval
-     * @note milliseconds, `0` means no flush
-     */
-    int flushInterval_;
 };
-
-class ConsoleAppender: public BaseAppender {};
 
 class FileAppender: public BaseAppender {};
 

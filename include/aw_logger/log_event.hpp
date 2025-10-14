@@ -220,7 +220,7 @@ public:
     /***
      * @brief constructor
      */
-    LogEventWrap(LogEvent::Ptr event);
+    LogEventWrap(LogEvent::Ptr event): event_(event) {}
 
     /***
      * @brief destructor to pass wrapped message to logger

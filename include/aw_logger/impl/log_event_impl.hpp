@@ -91,8 +91,6 @@ inline const size_t LogEvent::_getThreadId() const noexcept
 #endif
 }
 
-LogEventWrap::LogEventWrap(LogEvent::Ptr event): event_(event) {}
-
 } // namespace aw_logger
 
 #endif //! IMPL__LOG_EVENT_IMPL_HPP

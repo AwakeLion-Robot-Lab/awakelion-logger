@@ -18,10 +18,13 @@
 // C++ standard library
 #include <atomic>
 #include <condition_variable>
+#include <iostream>
 #include <list>
 #include <memory>
 #include <shared_mutex>
+#include <string>
 #include <thread>
+#include <unordered_map>
 
 // aw_logger library
 #include "aw_logger/appender.hpp"
@@ -54,7 +57,7 @@ public:
     /***
      * @brief constructor
      */
-    explicit Logger(std::string_view name = "root");
+    explicit Logger(const std::string& name = "root");
 
     /***
      * @brief destructor
@@ -73,6 +76,7 @@ public:
 
     /***
      * @brief submit formatted log messages to ringbuffer
+     * @param event enqueue event
      */
     void submit(const LogEvent::Ptr& event);
 
@@ -82,8 +86,15 @@ public:
      */
     void setThresholdLevel(LogLevel::level thres)
     {
+        std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
         threshold_level_ = thres;
     }
+
+    /***
+     * @brief set root logger
+     * @param root_logger root logger
+     */
+    void setRootLogger(const Logger::Ptr& root_logger);
 
     /***
      * @brief set formatter to logger
@@ -108,7 +119,21 @@ public:
      */
     void clearAppenders();
 
+    /***
+     * @brief get logger name
+     * @return logger name
+     */
+    const std::string getName() const noexcept
+    {
+        return name_;
+    }
+
 private:
+    /***
+     * @brief root logger
+     */
+    Logger::Ptr root_logger_;
+
     /***
      * @brief formatter
      */
@@ -186,26 +211,21 @@ public:
     LoggerManager& operator=(const LoggerManager&) = delete;
 
     /***
-     * @brief get static instance
-     * @return static instance
+     * @brief get static `std::shared_ptr` instance
+     * @return static `std::shared_ptr` instance
      */
-    std::shared_ptr<LoggerManager> getInstance();
+    static std::shared_ptr<LoggerManager> getInstance()
+    {
+        static std::shared_ptr<LoggerManager> instance = std::make_shared<LoggerManager>();
+        return instance;
+    }
 
     /***
      * @brief get logger
      * @param name logger name
      * @return current logger
      */
-    Logger::Ptr& getLogger(std::string_view name);
-
-    /***
-     * @brief get root logger
-     * @return root logger
-     */
-    Logger::Ptr& getRootLogger()
-    {
-        return root_logger_;
-    }
+    Logger::Ptr getLogger(const std::string& name);
 
 private:
     /***
