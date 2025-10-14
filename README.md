@@ -121,7 +121,7 @@ TBD.
 
 - [X] support componentFactory class which is used to manage component registration. @done(25-10-11 23:19)
 - [X] support loggerManager singleton class to manager loggers in multi-threads. @done(25-10-11 23:19)
+- [ ] support websocket for monitoring log information in real time, considering library as [uWebSockets](https://github.com/uNetworking/uWebSockets). @started(25-10-15 03:33) @high
 - [ ] process ringbuffer load test and appenders latency test. @started(25-10-11 23:19) @high
-- [ ] support `%` as format specifier in formatter class. @started(25-10-12 15:29) @high
-- [ ] support websocket for monitoring log information in real time, considering library as [uWebSockets](https://github.com/uNetworking/uWebSockets). @low
+- [ ] support `%` as format specifier in formatter class. @low
 - [ ] after load test, consider to support double ringbuffer to reduce lock time. @low
