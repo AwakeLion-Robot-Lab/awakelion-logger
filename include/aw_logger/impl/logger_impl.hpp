@@ -67,7 +67,7 @@ void Logger::start()
             {
                 try
                 {
-                    /* copy appenders in order to avoid data race and reduce lock time */
+                    /* copy appenders in order to avoid data race which is for thread safe */
                     std::list<BaseAppender::Ptr> copy_appenders;
                     /* after this block, read lock will be released, and we get copied variables */
                     {
@@ -112,7 +112,7 @@ void Logger::submit(const LogEvent::Ptr& event)
     /* check whether have own appenders */
     bool has_appenders = false;
     Logger::Ptr curr_root_logger;
-    /* copy for thread-safe */
+    /* copy root logger for thread-safe */
     {
         std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
         has_appenders = !appenders_.empty();
@@ -191,32 +191,44 @@ inline Logger::Ptr LoggerManager::getLogger(const std::string& name)
     /* if just want to get root logger, return directly */
     if (name == "root")
     {
-        std::unique_lock<std::mutex> lk(mgr_mtx_);
+        std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
         return root_logger_;
     }
 
-    std::unique_lock<std::mutex> lk(mgr_mtx_);
-    auto it_1 = loggers_map_.find(name);
-    if (it_1 != loggers_map_.end())
-        return it_1->second;
+    /* find in loggers map */
+    {
+        std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
+        auto it = loggers_map_.find(name);
+        if (it != loggers_map_.end())
+            return it->second;
+    }
 
     /* if can't find, create new logger */
-    /* copy root logger to avoid lock */
-    Logger::Ptr copy_root_logger = root_logger_;
-    lk.unlock();
+    /* copy root logger for thread-safe */
+    Logger::Ptr copy_root_logger;
+    {
+        std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
+        copy_root_logger = root_logger_;
+    }
 
     Logger::Ptr logger = std::make_shared<Logger>(name);
-    /* pass copy root logger instead of `this->root_logger`, here we can lock-free operation */
+    /* pass copy root logger instead of `this->root_logger_`, here we can use lock-free operation */
     logger->setRootLogger(copy_root_logger);
 
-    /* lock again to check again, avoid another thread create it before */
-    lk.lock();
-    auto it_2 = loggers_map_.find(name);
-    if (it_2 != loggers_map_.end())
-        return it_2->second;
-
-    loggers_map_.emplace(name, logger);
-    return logger;
+    /* lock again and check again, avoid another thread create it before */
+    {
+        std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
+        auto [it, inserted] = loggers_map_.try_emplace(name, logger);
+        /* if this logger has create, `inserted` == false and it won't be construct */
+        if (!inserted)
+        {
+            return it->second;
+        }
+        else
+        {
+            return logger;
+        }
+    }
 }
 
 } // namespace aw_logger

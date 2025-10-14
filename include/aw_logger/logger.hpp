@@ -229,9 +229,9 @@ private:
     std::unordered_map<std::string, Logger::Ptr> loggers_map_;
 
     /***
-     * @brief logger manager mutex
+     * @brief read and write logger manager mutex
      */
-    std::mutex mgr_mtx_;
+    std::shared_mutex rw_mtx_;
 };
 } // namespace aw_logger
 
