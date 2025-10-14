@@ -220,7 +220,7 @@ public:
     /***
      * @brief constructor
      */
-    LogEventWrap(LogEvent::Ptr event): event_(event) {}
+    LogEventWrap(const LogEvent::Ptr& event): event_(event) {}
 
     /***
      * @brief destructor to pass wrapped message to logger
@@ -230,15 +230,6 @@ public:
     {
         if (event_ != nullptr)
             event_->getLogger()->submit(event_);
-    }
-
-    /***
-     * @brief get log event
-     * @return log event
-     */
-    inline const LogEvent::Ptr getLogEvent() const noexcept
-    {
-        return event_;
     }
 
 private:

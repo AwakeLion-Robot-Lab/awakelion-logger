@@ -25,7 +25,7 @@
 
 namespace aw_logger {
 
-explicit ComponentFactory::ComponentFactory()
+ComponentFactory::ComponentFactory()
 {
     /* TODO (siyiya): load setting json first, and register component via setting json or default json */
     const auto current_path = std::filesystem::current_path();
@@ -38,11 +38,12 @@ void ComponentFactory::loadSettingComponents(std::string_view file_name)
 {
     try
     {
-        std::ifstream setting_file(file_name.data());
+        const auto file_name_s = std::string(file_name);
+        std::ifstream setting_file(file_name_s);
 
         if (!setting_file.is_open())
             throw aw_logger::invalid_parameter(
-                std::string("can not open setting file: ") + file_name.data()
+                std::string("can not open setting file: ") + file_name_s
             );
 
         setting_json_ = nlohmann::json::parse(setting_file);
@@ -100,7 +101,7 @@ inline Formatter::Formatter(const ComponentFactory::Ptr& factory)
 }
 
 std::string Formatter::formatComponents(
-    LogEvent::Ptr& event,
+    const LogEvent::Ptr& event,
     const std::map<std::string, std::string>& components
 )
 {
@@ -111,39 +112,46 @@ std::string Formatter::formatComponents(
     std::string result;
     result.reserve(512);
 
-    for (const auto& [type, format]: components)
+    try
     {
-        if (type == "timestamp")
+        for (const auto& [type, format]: components)
         {
-            result += formatTimestamp(event);
-        }
-        else if (type == "level")
-        {
-            result += formatLevel(event);
-        }
-        else if (type == "tid")
-        {
-            result += formatThreadId(event);
-        }
-        else if (type == "loc")
-        {
-            result += formatSourceLocation(event, format);
-        }
-        else if (type == "color")
-        {
-            const auto level_colors = nlohmann::json::parse(format);
-            const auto level_str = event->getLogLevelString();
+            if (type == "timestamp")
+            {
+                result += formatTimestamp(event);
+            }
+            else if (type == "level")
+            {
+                result += formatLevel(event);
+            }
+            else if (type == "tid")
+            {
+                result += formatThreadId(event);
+            }
+            else if (type == "loc")
+            {
+                result += formatSourceLocation(event, format);
+            }
+            else if (type == "color")
+            {
+                const auto level_colors = nlohmann::json::parse(format);
+                const auto level_str = event->getLogLevelString();
 
-            if (level_colors.contains(level_str))
-                result += formatColor(level_colors[level_str].get<std::string>());
+                if (level_colors.contains(level_str))
+                    result += formatColor(level_colors[level_str].get<std::string>());
+            }
+            else if (type == "msg")
+            {
+                result += formatMsg(event);
+                result += aw_logger::Color::endColor;
+            }
         }
-        else if (type == "msg")
-        {
-            result += formatMsg(event);
-            result += aw_logger::Color::endColor;
-        }
+        return result;
+        /* code */
+    } catch (const std::exception& ex)
+    {
+        std::cerr << ex.what() << '\n' << std::endl;
     }
-    return result;
 }
 
 inline std::string Formatter::formatColor(std::string_view format)
@@ -162,7 +170,7 @@ inline std::string Formatter::formatColor(std::string_view format)
         else
         {
             throw aw_logger::invalid_parameter(
-                std::string("Color ") + format.data()
+                std::string("Color ") + std::string(format)
                 + " not found, use default color 'white' instead."
             );
         }
@@ -174,7 +182,8 @@ inline std::string Formatter::formatColor(std::string_view format)
     return Formatter::format("\033[38;2;{};{};{}m", r, g, b);
 }
 
-inline std::string Formatter::formatSourceLocation(LogEvent::Ptr& event, std::string_view format)
+inline std::string
+Formatter::formatSourceLocation(const LogEvent::Ptr& event, std::string_view format)
 {
     const auto& loc = event->getSourceLocation();
     std::string result;

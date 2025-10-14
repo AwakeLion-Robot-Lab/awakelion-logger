@@ -185,8 +185,10 @@ public:
      * @return formatted log message
      * @details the format is able to be customized in `logger_settings.json`
      */
-    std::string
-    formatComponents(LogEvent::Ptr& event, const std::map<std::string, std::string>& components);
+    std::string formatComponents(
+        const LogEvent::Ptr& event,
+        const std::map<std::string, std::string>& components
+    );
 
     /***
      * @brief get registered components map
@@ -216,7 +218,7 @@ private:
      * @param event log event
      * @return formatted log message
      */
-    std::string formatMsg(LogEvent::Ptr& event)
+    std::string formatMsg(const LogEvent::Ptr& event)
     {
         return event->getMsg();
     }
@@ -226,7 +228,7 @@ private:
      * @param event log event
      * @return formatted log level
      */
-    std::string formatLevel(LogEvent::Ptr& event)
+    std::string formatLevel(const LogEvent::Ptr& event)
     {
         return Formatter::vformat("[{}]", event->getLogLevelString());
     }
@@ -236,7 +238,7 @@ private:
      * @param event log event
      * @return formatted log timestamp
      */
-    std::string formatTimestamp(LogEvent::Ptr& event)
+    std::string formatTimestamp(const LogEvent::Ptr& event)
     {
         return Formatter::vformat("[{}]", event->getTimestamp());
     }
@@ -246,13 +248,13 @@ private:
      * @param format source location format
      * @return formatted log source location
      */
-    std::string formatSourceLocation(LogEvent::Ptr& event, std::string_view format);
+    std::string formatSourceLocation(const LogEvent::Ptr& event, std::string_view format);
 
     /***
      * @brief format log thread id
      * @return formatted log thread id
      */
-    std::string formatThreadId(LogEvent::Ptr& event)
+    std::string formatThreadId(const LogEvent::Ptr& event)
     {
         return Formatter::vformat("[tid: {}]", event->getThreadId());
     }

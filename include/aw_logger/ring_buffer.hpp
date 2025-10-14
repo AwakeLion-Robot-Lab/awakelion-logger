@@ -17,7 +17,6 @@
 
 // C++ standard library
 #include <atomic>
-#include <cassert>
 #include <cstdint>
 #include <memory>
 

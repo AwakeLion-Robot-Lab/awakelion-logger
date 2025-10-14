@@ -12,33 +12,36 @@ A low-latency, high-throughput and few-dependency logger for `AwakeLion Robot La
 
 ```mermaid
 flowchart LR
-    A[User Log Macro] -->|LogEvent Instance| B[LogEventWrap]
-    B -->|RAII| E[Logger]
-
-    E -->|Submit| G{Level Filter}
-    G -->|Below Threshold| H[Discard]
-    G -->|Pass| J((Ring Buffer<br/>Async Storage))
-
-    subgraph "Worker Thread"
-        K[Worker Loop] --> L{RingBuffer::pop}
-        L -->|Success| M[Formatter]
-        L -->|Empty| N[Wait]
-        N --> K
-
-        M --> O[Format Components<br/>Timestamp, Level, ThreadID, Location, Color, Message]
-        O --> P[Combine Formatted String]
-
-        P --> Q[Appender Output]
-        Q --> R[Console]
-        Q --> S[File]
-        Q --> T[WebSocket]
-
-        R --> K
-        S --> K
-        T --> K
+    subgraph "Frontend (User Threads)"
+        A[User Log Macro] -->|Create LogEvent| B[LogEventWrap]
+        B -->|RAII Destruction| C[Submit to Logger]
     end
 
-    J --> L
+    C --> D{Logger Level Filter}
+    D -->|Below Threshold| E[Discard]
+    D -->|Pass| F((Ring Buffer<br/>Async Storage))
+
+    subgraph "Backend (Worker Thread)"
+        G[Worker Loop] --> H{RingBuffer::pop}
+        H -->|Success| I[Get Appenders]
+        H -->|Empty| J[Wait for Signal]
+        J --> G
+
+        I --> K{Appender Selection}
+        K --> L[Console Appender]
+        K --> M[File Appender]
+        K --> N[WebSocket Appender]
+
+        L --> O[Format]
+        M --> P[Format]
+        N --> Q[Format]
+
+        O --> R[std::cout]
+        P --> S[Log File]
+        Q --> T[WebSocket Clients]
+    end
+
+    F --> H
 ```
 
 ### Structure
@@ -55,50 +58,50 @@ flowchart LR
 > * Use `std::allocator` as standard of memory allocation, like placement new and buffer destruct.
 
 > [!NOTE]
-> I already found a helpful [blog](https://int08h.com/post/ode-to-a-vyukov-queue/) to explain Vyukov's MPMCQueue, here i provide my thought.
->
-> **The core of Vyukov's MPMCQueue is the sequence of cell**, here cell is the base unit of ringbuffer, which includes sequence and input `DataT` data.
->
-> In fact, sequence is an atomic counter, according to source code, **it indicates the status of between cell and operator thread**.
->
-> #### Key parameters
->
-> * `curr_wIdx / curr_rIdx`: **write index / read index in current thread.**
-> * `curr_seq`: **sequence of current cell in current thread.**
->
-> #### How it update
->
-> |                      |                  `push()`                  |                          `pop()`                          |
-> | :-------------------: | :------------------------------------------: | :----------------------------------------------------------: |
-> | **description** | add to `curr_wIdx + 1`, move to next cell. | add to `curr_rIdx + capacity`, move to next mirror memory. |
-> | **expression** |         `curr_seq = curr_wIdx + 1`         |             `curr_seq = curr_rIdx + mask_ + 1`             |
->
-> #### Constructor
->
-> ```cpp
-> buffer_ = allocator_trait::allocate(alloc_, r_capacity);
->     for (size_t i = 0; i < r_capacity; i++)
->     {
->         /* construct empty cell */
->         allocator_trait::construct(alloc_, buffer_ + i);
->         /* initialize sequence */
->         (buffer_ + i)->sequence_.store(i, std::memory_order_relaxed);
->     }
-> ```
->
-> #### Producer perspective
->
-> |        status        |                                                     available                                                     |                             pending                             |                                                                             unavailable                                                                             |
-> | :-------------------: | :----------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
-> | **description** | default to its index,<br />producer can write.<br />after update, it signal<br />to consumer for `ready` status. | occupied by another producer,<br />wait for write and try again. | this cell already wrap-around(property of unsigned int),<br />but write index not, that means all cells are written,<br /> which also means the ringbuffer is full. |
-> | **expression** |                                                  `== curr_wIdx`                                                  |                         `> curr_wIdx`                         |                                                                           `< curr_wIdx`                                                                           |
->
-> #### Consumer perspective
->
-> |        status        |                             available                             |                                                     pending                                                     |                                 unavailable                                 |
-> | :-------------------: | :---------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------: |
-> | **description** | equal to value<br /> after `push()` update,<br />time to read. | this cell has already<br />read, try to load <br />`curr_rIdx` status again<br />for a next read operation. | data in all cells have been read,<br />which means the ringbuffer is empty. |
-> | **expression** |                       `== curr_rIdx + 1`                       |                                               `> curr_rIdx + 1`                                               |                             `< curr_rIdx + 1`                             |
+> I already found a helpful [blog](https://pskrgag.github.io/post/mpmc_vuykov/) to explain Vyukov's MPMCQueue, here i provide my thought.
+
+**The core of Vyukov's MPMCQueue is the sequence of cell**, here cell is the base unit of ringbuffer, which includes sequence and input `DataT` data.
+
+In fact, sequence is an atomic counter, according to source code, **it indicates the status of between cell and operator thread**.
+
+#### Key parameters
+
+* `curr_wIdx / curr_rIdx`: **write index / read index in current thread.**
+* `curr_seq`: **sequence of current cell in current thread.**
+
+#### How it update
+
+|                 |                  `push()`                  |                          `pop()`                           |
+| :-------------: | :----------------------------------------: | :--------------------------------------------------------: |
+| **description** | add to `curr_wIdx + 1`, move to next cell. | add to `curr_rIdx + capacity`, move to next mirror memory. |
+| **expression**  |         `curr_seq = curr_wIdx + 1`         |             `curr_seq = curr_rIdx + mask_ + 1`             |
+
+#### Constructor
+
+```cpp
+buffer_ = allocator_trait::allocate(alloc_, r_capacity);
+    for (size_t i = 0; i < r_capacity; i++)
+    {
+        /* construct empty cell */
+        allocator_trait::construct(alloc_, buffer_ + i);
+        /* initialize sequence */
+        (buffer_ + i)->sequence_.store(i, std::memory_order_relaxed);
+    }
+```
+
+#### Producer perspective
+
+|     status      |                                                    available                                                     |                             pending                              |                                                                             unavailable                                                                             |
+| :-------------: | :--------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------: |
+| **description** | default to its index,<br />producer can write.<br />after update, it signal<br />to consumer for `ready` status. | occupied by another producer,<br />wait for write and try again. | this cell already wrap-around(property of unsigned int),<br />but write index not, that means all cells are written,<br /> which also means the ringbuffer is full. |
+| **expression**  |                                                  `== curr_wIdx`                                                  |                          `> curr_wIdx`                           |                                                                            `< curr_wIdx`                                                                            |
+
+#### Consumer perspective
+
+|     status      |                           available                            |                                                   pending                                                   |                                 unavailable                                 |
+| :-------------: | :------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------: |
+| **description** | equal to value<br /> after `push()` update,<br />time to read. | this cell has already<br />read, try to load <br />`curr_rIdx` status again<br />for a next read operation. | data in all cells have been read,<br />which means the ringbuffer is empty. |
+| **expression**  |                       `== curr_rIdx + 1`                       |                                              `> curr_rIdx + 1`                                              |                              `< curr_rIdx + 1`                              |
 
 ## Dependencies
 

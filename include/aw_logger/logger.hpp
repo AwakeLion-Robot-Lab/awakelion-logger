@@ -28,7 +28,6 @@
 
 // aw_logger library
 #include "aw_logger/appender.hpp"
-#include "aw_logger/formatter.hpp"
 #include "aw_logger/ring_buffer.hpp"
 
 /***
@@ -75,7 +74,7 @@ public:
     void stop();
 
     /***
-     * @brief submit formatted log messages to ringbuffer
+     * @brief submit log event pointer to ringbuffer
      * @param event enqueue event
      */
     void submit(const LogEvent::Ptr& event);
@@ -95,12 +94,6 @@ public:
      * @param root_logger root logger
      */
     void setRootLogger(const Logger::Ptr& root_logger);
-
-    /***
-     * @brief set formatter to logger
-     * @param formatter formatter to be set
-     */
-    void setFormatter(const Formatter::Ptr& formatter);
 
     /***
      * @brief set appender to appender list
@@ -135,11 +128,6 @@ private:
     Logger::Ptr root_logger_;
 
     /***
-     * @brief formatter
-     */
-    Formatter::Ptr formatter_;
-
-    /***
      * @brief log event ringbuffer
      */
     RingBuffer<LogEvent::Ptr> rb_;
@@ -163,7 +151,7 @@ private:
      * @brief condition variable to notify the ringbuffer inside worker thread
      * @details
      * given to condition variable may be spurious wakeup or false wakeup, so we need to set predicate in `wait` function
-     * and predication should validate the status of `running_` and whether ringbuffer has rest size
+     * and predication should validate the status of `running_` and whether ringbuffer has new messages
      */
     std::condition_variable cv_;
 
@@ -179,7 +167,7 @@ private:
      * @note write operation is `std::shared_lock`(share mode), otherwise is `std::unique_lock`(unique mode) of read operation
      * @details
      * read operation of logger is attribute log messages to appenders list
-     * write operation of logger includes add or remove appender, log level threshold and formatter
+     * write operation of logger includes add or remove appender and add log level threshold
      * push message to ringbuffer is a kind of hot path, it should be lock-free ought to be faster
      * so in fact, this shared mutex protect appender operation and it is not involved in ringbuffer operation
      */
@@ -207,8 +195,9 @@ public:
     explicit LoggerManager();
 
     LoggerManager(const LoggerManager&) = delete;
-    LoggerManager(const LoggerManager&&) = delete;
+    LoggerManager(LoggerManager&&) = delete;
     LoggerManager& operator=(const LoggerManager&) = delete;
+    LoggerManager& operator=(LoggerManager&&) = delete;
 
     /***
      * @brief get static `std::shared_ptr` instance

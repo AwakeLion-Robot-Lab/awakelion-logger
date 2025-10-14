@@ -23,9 +23,7 @@ inline Logger::Logger(const std::string& name):
     threshold_level_(LogLevel::level::DEBUG),
     rb_(1024),
     running_(false)
-{
-    formatter_ = std::make_shared<Formatter>(new ComponentFactory());
-}
+{}
 
 inline Logger::~Logger()
 {
@@ -69,30 +67,18 @@ void Logger::start()
             {
                 try
                 {
-                    /* copy formatter and appenders in order to avoid data race and reduce lock time */
-                    Formatter::Ptr copy_formatter;
+                    /* copy appenders in order to avoid data race and reduce lock time */
                     std::list<BaseAppender::Ptr> copy_appenders;
                     /* after this block, read lock will be released, and we get copied variables */
                     {
                         std::shared_lock<std::shared_mutex> read_lk(logger->rw_mtx_);
-                        copy_formatter = logger->formatter_;
                         copy_appenders = logger->appenders_;
                     }
-
-                    /* check if formatter is nullptr */
-                    if (copy_formatter == nullptr)
-                        continue;
-
-                    /* format */
-                    std::string fmt_msg = copy_formatter->formatComponents(
-                        out_event,
-                        copy_formatter->getRegisteredComponents()
-                    );
 
                     /* submit to each appender */
                     for (const auto& app: copy_appenders)
                     {
-                        app->append(logger, fmt_msg);
+                        app->append(out_event);
                     }
                 } catch (const std::exception& ex)
                 {
@@ -120,28 +106,24 @@ inline void Logger::stop()
 
 void Logger::submit(const LogEvent::Ptr& event)
 {
-    if (event == nullptr)
-        return;
-
-    /* log level filter */
-    if (event->getLogLevel() < threshold_level_)
+    if (event == nullptr || event->getLogLevel() < threshold_level_)
         return;
 
     /* check whether have own appenders */
     bool has_appenders = false;
+    Logger::Ptr curr_root_logger;
+    /* copy for thread-safe */
     {
         std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
         has_appenders = !appenders_.empty();
+        curr_root_logger = root_logger_;
     }
-    /* if did not have, use root logger to submit */
-    if (!has_appenders && (root_logger_ != nullptr))
+
+    /* if did not have appenders, use copy root logger to submit */
+    if (!has_appenders && (curr_root_logger != nullptr))
     {
-        /* if this object is root logger, continue */
-        if (root_logger_.get() != this)
-        {
-            root_logger_->submit(event);
-            return;
-        }
+        curr_root_logger->submit(event);
+        return;
     }
 
     /* push to ringbuffer */
@@ -163,18 +145,6 @@ inline void Logger::setRootLogger(const Logger::Ptr& root_logger)
 
     std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
     root_logger_ = root_logger;
-}
-
-inline void Logger::setFormatter(const Formatter::Ptr& formatter)
-{
-    if (formatter == nullptr)
-    {
-        throw aw_logger::invalid_parameter("input formatter is nullptr!");
-        return;
-    }
-
-    std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
-    formatter_ = formatter;
 }
 
 inline void Logger::setAppender(const BaseAppender::Ptr& appender)

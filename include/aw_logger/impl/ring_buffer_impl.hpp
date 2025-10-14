@@ -100,10 +100,14 @@ bool RingBuffer<DataT, Allocator>::push(U&& data)
          * which means ringbuffer is full
         */
         else if (used_size < 0)
+        {
             return false;
+        }
         /* another write thread is writing this cell, load again and retry */
         else
+        {
             curr_wIdx = wIdx_.load(std::memory_order_relaxed);
+        }
     }
 
     /* update members of current cell */
@@ -142,10 +146,14 @@ bool RingBuffer<DataT, Allocator>::pop(value_t& data)
         }
         /* here means all the data has been read */
         else if (used_size < 0)
+        {
             return false;
+        }
         /* producer is writing */
         else
+        {
             curr_rIdx = rIdx_.load(std::memory_order_relaxed);
+        }
     }
 
     data = std::move(curr_cell->data_);
