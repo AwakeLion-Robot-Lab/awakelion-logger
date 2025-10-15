@@ -164,7 +164,7 @@ bool RingBuffer<DataT, Allocator>::pop(value_t& data)
 }
 
 template<typename DataT, typename Allocator>
-inline const size_t RingBuffer<DataT, Allocator>::getSize() const noexcept
+inline constexpr size_t RingBuffer<DataT, Allocator>::getSize() const noexcept
 {
     const size_t curr_wIdx = wIdx_.load(std::memory_order_acquire);
     const size_t curr_rIdx = rIdx_.load(std::memory_order_acquire);

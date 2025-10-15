@@ -185,7 +185,7 @@ inline std::string Formatter::formatColor(std::string_view format)
 inline std::string
 Formatter::formatSourceLocation(const LogEvent::Ptr& event, std::string_view format)
 {
-    const auto& loc = event->getSourceLocation();
+    auto loc = event->getSourceLocation();
     std::string result;
     result.reserve(format.size() + 100);
     size_t prev_pos = 0, pos = 0;

@@ -116,9 +116,17 @@ public:
      * @brief get logger name
      * @return logger name
      */
-    const std::string getName() const noexcept
+    inline constexpr std::string getName() const noexcept
     {
         return name_;
+    }
+
+    /***
+     * @brief get log level threshold
+     */
+    inline constexpr LogLevel::level getThresLevel() const noexcept
+    {
+        return threshold_level_;
     }
 
 private:

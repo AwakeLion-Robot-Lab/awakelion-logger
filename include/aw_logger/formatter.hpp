@@ -19,6 +19,9 @@
 // C++ standard library
 #include <format>
 #include <map>
+#include <memory>
+#include <string>
+#include <string_view>
 
 // nlohmann JSON library
 #include <nlohmann/json.hpp>

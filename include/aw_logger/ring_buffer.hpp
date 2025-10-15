@@ -72,7 +72,7 @@ public:
      * @brief get capacity of ring buffer
      * @retval capacity of ring buffer
      */
-    inline const size_t getCapacity() const noexcept
+    inline constexpr size_t getCapacity() const noexcept
     {
         return mask_ + 1;
     }
@@ -82,12 +82,12 @@ public:
      * @retval size of ring buffer
      * @details the return means used size
      */
-    inline const size_t getSize() const noexcept;
+    inline constexpr size_t getSize() const noexcept;
 
     /***
      * @brief get the rest of size of ring buffer
      */
-    inline const size_t getRestSize() const noexcept
+    inline constexpr size_t getRestSize() const noexcept
     {
         return mask_ + 1 - getSize();
     }

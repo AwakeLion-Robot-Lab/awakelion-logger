@@ -71,6 +71,7 @@ public:
 
         /***
          * @brief get input data
+         * @note if template `DataT` type is `std::string`, that means `data_` is the log message
          */
         constexpr DataT const& getData() const noexcept
         {
@@ -102,25 +103,21 @@ public:
 
     /***
      * @brief constructor
+     * @param logger logger
      * @param level log level
      * @param wrapped_msg wrapped message with local source location
      */
-    explicit LogEvent(LogLevel::level level, LocalSourceLocation<std::string> wrapped_msg);
-
-    /***
-     * @brief get unformatted message
-     * @return unformatted message
-     */
-    inline const std::string getMsg() const noexcept
-    {
-        return msg_;
-    }
+    explicit LogEvent(
+        Logger::Ptr logger,
+        LogLevel::level level,
+        LocalSourceLocation<std::string> wrapped_msg
+    );
 
     /***
      * @brief get log level
      * @return log level
      */
-    inline const LogLevel::level getLogLevel() const noexcept
+    inline constexpr LogLevel::level getLogLevel() const noexcept
     {
         return level_;
     }
@@ -129,7 +126,7 @@ public:
      * @brief get log level in type of `std::string`
      * @return log level in type of `std::string`
      */
-    inline const std::string getLogLevelString() const noexcept
+    inline constexpr std::string getLogLevelString() const noexcept
     {
         return LogLevel::to_string(level_);
     }
@@ -139,9 +136,9 @@ public:
      * @return timestamp
      */
     inline const auto getTimestamp() const noexcept
-        -> std::chrono::zoned_time<std::chrono::system_clock::duration>
+        -> std::chrono::local_time<std::chrono::system_clock::duration>
     {
-        return timestamp_;
+        return timestamp_.get_local_time();
     }
 
     /***
@@ -150,7 +147,15 @@ public:
      */
     inline const std::source_location& getSourceLocation() const noexcept
     {
-        return loc_;
+        return wrapped_msg_.getLocation();
+    }
+
+    /***
+     * @brief get input message
+     */
+    inline constexpr std::string getMsg() const noexcept
+    {
+        return wrapped_msg_.getData();
     }
 
     /***
@@ -158,7 +163,7 @@ public:
      * @return thread id from thread local storage
      * @details copied from [spdlog](https://github.com/gabime/spdlog)
      */
-    inline const size_t getThreadId() const noexcept;
+    inline size_t getThreadId() const noexcept;
 
     /***
      * @brief get logger
@@ -171,26 +176,25 @@ public:
 
 private:
     /***
-     * @brief unformatted log message
+     * @brief logger
      */
-    std::string msg_;
+    Logger::Ptr logger_;
 
     /***
-     * @brief log level
+     * @brief level
      */
     LogLevel::level level_;
 
     /***
-     * @brief log timestamp
+     * @brief timestamp
      * @note this is timestamp from your time zone
      */
     std::chrono::zoned_time<std::chrono::system_clock::duration> timestamp_;
 
     /***
-     * @brief source location
-     * @note it SHOULD BE a local source location via `aw_logger::LogEvent::LocalSourceLocation<DataT>` constructor
+     * @brief wrapped message includes source location and input message
      */
-    std::source_location loc_;
+    LocalSourceLocation<std::string> wrapped_msg_;
 
     /***
      * @brief thread id
@@ -198,16 +202,11 @@ private:
     size_t thread_id_;
 
     /***
-     * @brief logger
-     */
-    Logger::Ptr logger_;
-
-    /***
      * @brief get thread id
      * @return thread id
      * @details copied from [spdlog](https://github.com/gabime/spdlog)
      */
-    inline const size_t _getThreadId() const noexcept;
+    inline size_t _getThreadId() const noexcept;
 };
 
 /***

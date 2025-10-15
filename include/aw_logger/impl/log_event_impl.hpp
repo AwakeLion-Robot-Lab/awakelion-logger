@@ -23,21 +23,25 @@
 #include "aw_logger/log_event.hpp"
 
 namespace aw_logger {
-LogEvent::LogEvent(LogLevel::level level, LocalSourceLocation<std::string> wrapped_msg):
-    msg_(wrapped_msg.getData()),
+LogEvent::LogEvent(
+    Logger::Ptr logger,
+    LogLevel::level level,
+    LocalSourceLocation<std::string> wrapped_msg
+):
+    logger_(std::move(logger)),
     level_(level),
     timestamp_({ std::chrono::current_zone(), std::chrono::system_clock::now() }),
-    loc_(wrapped_msg.getLocation()),
+    wrapped_msg_(std::move(wrapped_msg)),
     thread_id_(LogEvent::getThreadId())
 {}
 
-inline const size_t LogEvent::getThreadId() const noexcept
+inline size_t LogEvent::getThreadId() const noexcept
 {
     static thread_local size_t thread_id = _getThreadId();
     return thread_id;
 }
 
-inline const size_t LogEvent::_getThreadId() const noexcept
+inline size_t LogEvent::_getThreadId() const noexcept
 {
 #ifdef _WIN32
     return static_cast<size_t>(::GetCurrentThreadId());

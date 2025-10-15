@@ -58,7 +58,7 @@ flowchart LR
 > * Use `std::allocator` as standard of memory allocation, like placement new and buffer destruct.
 
 > [!NOTE]
-> I already found a helpful [blog](https://pskrgag.github.io/post/mpmc_vuykov/) to explain Vyukov's MPMCQueue, here i provide my thought.
+> I already found a helpful [blog](https://pskrgag.github.io/post/mpmc_vuykov/) to explain Vyukov's MPMCQueue, and here I provide my thought.
 
 **The core of Vyukov's MPMCQueue is the sequence of cell**, here cell is the base unit of ringbuffer, which includes sequence and input `DataT` data.
 
@@ -71,10 +71,10 @@ In fact, sequence is an atomic counter, according to source code, **it indicates
 
 #### How it update
 
-|                 |                  `push()`                  |                          `pop()`                           |
-| :-------------: | :----------------------------------------: | :--------------------------------------------------------: |
+|                      |                  `push()`                  |                          `pop()`                          |
+| :-------------------: | :------------------------------------------: | :----------------------------------------------------------: |
 | **description** | add to `curr_wIdx + 1`, move to next cell. | add to `curr_rIdx + capacity`, move to next mirror memory. |
-| **expression**  |         `curr_seq = curr_wIdx + 1`         |             `curr_seq = curr_rIdx + mask_ + 1`             |
+| **expression** |         `curr_seq = curr_wIdx + 1`         |             `curr_seq = curr_rIdx + mask_ + 1`             |
 
 #### Constructor
 
@@ -91,17 +91,17 @@ buffer_ = allocator_trait::allocate(alloc_, r_capacity);
 
 #### Producer perspective
 
-|     status      |                                                    available                                                     |                             pending                              |                                                                             unavailable                                                                             |
-| :-------------: | :--------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------: |
+|        status        |                                                     available                                                     |                             pending                             |                                                                             unavailable                                                                             |
+| :-------------------: | :----------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
 | **description** | default to its index,<br />producer can write.<br />after update, it signal<br />to consumer for `ready` status. | occupied by another producer,<br />wait for write and try again. | this cell already wrap-around(property of unsigned int),<br />but write index not, that means all cells are written,<br /> which also means the ringbuffer is full. |
-| **expression**  |                                                  `== curr_wIdx`                                                  |                          `> curr_wIdx`                           |                                                                            `< curr_wIdx`                                                                            |
+| **expression** |                                                  `== curr_wIdx`                                                  |                         `> curr_wIdx`                         |                                                                           `< curr_wIdx`                                                                           |
 
 #### Consumer perspective
 
-|     status      |                           available                            |                                                   pending                                                   |                                 unavailable                                 |
-| :-------------: | :------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------: |
+|        status        |                             available                             |                                                     pending                                                     |                                 unavailable                                 |
+| :-------------------: | :---------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------: |
 | **description** | equal to value<br /> after `push()` update,<br />time to read. | this cell has already<br />read, try to load <br />`curr_rIdx` status again<br />for a next read operation. | data in all cells have been read,<br />which means the ringbuffer is empty. |
-| **expression**  |                       `== curr_rIdx + 1`                       |                                              `> curr_rIdx + 1`                                              |                              `< curr_rIdx + 1`                              |
+| **expression** |                       `== curr_rIdx + 1`                       |                                               `> curr_rIdx + 1`                                               |                             `< curr_rIdx + 1`                             |
 
 ## Dependencies
 
