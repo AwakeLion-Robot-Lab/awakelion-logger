@@ -124,7 +124,7 @@ private:
     /***
      * @brief const buffer of cells
      */
-    cell_t* const buffer_;
+    cell_t* buffer_;
 
     /***
      * @brief allocator to manage memory
@@ -174,7 +174,7 @@ private:
      * @return real index in buffer
      * @details JUST for power of 2 mask!
      */
-    inline const size_t toPtr(size_t idx) const noexcept
+    inline size_t toPtr(size_t idx) const noexcept
     {
         return idx & mask_;
     }

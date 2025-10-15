@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BASE_APPENDER_HPP
-#define BASE_APPENDER_HPP
+#ifndef APPENDER_HPP
+#define APPENDER_HPP
 
 // C++ standard library
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <string_view>
@@ -25,7 +26,6 @@
 #include "aw_logger/exception.hpp"
 #include "aw_logger/formatter.hpp"
 #include "aw_logger/log_event.hpp"
-#include "aw_logger/logger.hpp"
 
 //uWebSockets library
 
@@ -62,18 +62,12 @@ public:
 
     /***
      * @brief virtual append function
-     * @param logger logger
      * @param event log event
      */
     virtual void append(const LogEvent::Ptr& event) = 0;
 
     /***
-     * @brief flush
-     */
-    virtual void flush() = 0;
-
-    /***
-     * @brief set formatter to logger
+     * @brief set formatter to appender
      * @param formatter formatter to be set
      */
     void setFormatter(const Formatter::Ptr& formatter)
@@ -107,6 +101,10 @@ protected:
         std::lock_guard<std::mutex> lk(fmt_mtx_);
         if (formatter_ != nullptr && event != nullptr)
             return formatter_->formatComponents(event, formatter_->getRegisteredComponents());
+        else
+        {
+            throw aw_logger::invalid_parameter("formatter or event is nullptr!");
+        }
     }
 };
 
@@ -148,4 +146,4 @@ private:
 class WebsocketAppender: public BaseAppender {};
 } // namespace aw_logger
 
-#endif //! BASE_APPENDER_HPP
+#endif //! APPENDER_HPP

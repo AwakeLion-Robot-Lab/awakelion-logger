@@ -37,41 +37,29 @@ public:
         return msg_.c_str();
     }
 
-private:
+protected:
     std::string msg_;
 };
 
 class invalid_parameter: public aw_logger_exception {
 public:
-    explicit invalid_parameter(std::string_view msg): aw_logger_exception(msg) {}
-
-    const char* what() const noexcept override
-    {
-        std::cout << "[aw_logger]: invalid parameter: " << std::string(aw_logger_exception::what())
-                  << std::endl;
-    }
+    explicit invalid_parameter(std::string_view msg):
+        aw_logger_exception("[aw_logger]: invalid parameter: " + std::string(msg))
+    {}
 };
 
 class ringbuffer_exception: public aw_logger_exception {
 public:
-    explicit ringbuffer_exception(std::string_view msg): aw_logger_exception(msg) {}
-
-    const char* what() const noexcept override
-    {
-        std::cout << "[aw_logger]: ringbuffer exception: "
-                  << std::string(aw_logger_exception::what()) << std::endl;
-    }
+    explicit ringbuffer_exception(std::string_view msg):
+        aw_logger_exception("[aw_logger]: invalid parameter: " + std::string(msg))
+    {}
 };
 
 class bad_json: public aw_logger_exception {
 public:
-    explicit bad_json(std::string_view msg): aw_logger_exception(msg) {}
-
-    const char* what() const noexcept override
-    {
-        std::cout << "[aw_logger]: bad json: " << std::string(aw_logger_exception::what())
-                  << std::endl;
-    }
+    explicit bad_json(std::string_view msg):
+        aw_logger_exception("[aw_logger]: invalid parameter: " + std::string(msg))
+    {}
 };
 
 } // namespace aw_logger

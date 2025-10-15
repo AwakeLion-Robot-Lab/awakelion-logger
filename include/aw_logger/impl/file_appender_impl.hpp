@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef CONSOLE_APPENDER_CPP
-#define CONSOLE_APPENDER_CPP
+#ifndef IMPL__FILE_APPENDER_IMPL_HPP
+#define IMPL__FILE_APPENDER_IMPL_HPP
 
 // aw_logger library
 #include "aw_logger/appender.hpp"
@@ -24,15 +24,6 @@
  * inspired by [log4j2](https://logging.apache.org/log4j/2.12.x/) and [minilog](https://github.com/archibate/minilog)
  * @author jinhua "siyiovo" deng
  */
-namespace aw_logger {
+namespace aw_logger {} // namespace aw_logger
 
-void ConsoleAppender::append(const LogEvent::Ptr& event)
-{
-    std::lock_guard<std::mutex> lk(app_mtx_);
-    const auto log_msg = formatMsg(event);
-    sync_stream_ << log_msg << std::endl;
-}
-
-} // namespace aw_logger
-
-#endif //! CONSOLE_APPENDER_CPP
+#endif //! IMPL__FILE_APPENDER_IMPL_HPP

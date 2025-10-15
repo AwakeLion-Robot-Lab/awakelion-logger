@@ -60,14 +60,15 @@ public:
                          U> // `require` ensure that `DataT` can be constructible from `U`
 
         // `std::constructible_from<DataT,U>` check whether `DataT` can be constructed from `U`
-        consteval LocalSourceLocation(
+        constexpr LocalSourceLocation(
             U&& u_ref,
-            std::source_location loc = std::source_location::current()
+            const std::source_location loc = std::source_location::current()
         ):
             data_(
                 std::forward<U>(u_ref)
             ), // `std::forward<U>` can judge whether `U` is lvalue or rvalue
-            loc_(std::move(loc)) {};
+            loc_(std::move(loc))
+        {}
 
         /***
          * @brief get input data
@@ -238,5 +239,8 @@ private:
     LogEvent::Ptr event_;
 };
 } // namespace aw_logger
+
+// aw_logger library
+#include "impl/log_event_impl.hpp"
 
 #endif //! LOG_EVENT_HPP

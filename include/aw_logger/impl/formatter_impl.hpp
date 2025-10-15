@@ -20,6 +20,7 @@
 #include <fstream>
 
 // aw_logger library
+#include "aw_logger/config_path.h.in"
 #include "aw_logger/exception.hpp"
 #include "aw_logger/formatter.hpp"
 
@@ -27,38 +28,28 @@ namespace aw_logger {
 
 ComponentFactory::ComponentFactory()
 {
-    /* TODO (siyiya): load setting json first, and register component via setting json or default json */
-    const auto current_path = std::filesystem::current_path();
-    const auto setting_path = (current_path / "../../../config/aw_logger_settings.json").string();
+#ifdef AW_LOGGER_CONFIG_FILE
+    const std::string setting_path = AW_LOGGER_CONFIG_FILE;
+#endif
     loadSettingComponents(setting_path);
     registerComponents(setting_json_);
 }
 
 void ComponentFactory::loadSettingComponents(std::string_view file_name)
 {
-    try
-    {
-        const auto file_name_s = std::string(file_name);
-        std::ifstream setting_file(file_name_s);
+    const auto file_name_s = std::string(file_name);
+    std::ifstream setting_file(file_name_s);
 
-        if (!setting_file.is_open())
-            throw aw_logger::invalid_parameter(
-                std::string("can not open setting file: ") + file_name_s
-            );
+    if (!setting_file.is_open())
+        throw aw_logger::invalid_parameter(
+            std::string("can not open setting file: ") + file_name_s
+        );
 
-        setting_json_ = nlohmann::json::parse(setting_file);
-        setting_file.close();
+    setting_json_ = nlohmann::json::parse(setting_file);
+    setting_file.close();
 
-        if (!setting_json_.contains("log_event"))
-            throw aw_logger::bad_json(
-                "can not find 'log_event' field in setting json, use default json instead."
-            );
-
-    } catch (const std::exception& ex)
-    {
-        std::cerr << ex.what() << '\n' << std::endl;
+    if (!setting_json_.contains("log_event"))
         setting_json_ = default_json_;
-    }
 }
 
 inline void ComponentFactory::registerComponents(const nlohmann::json& json)
@@ -146,12 +137,11 @@ std::string Formatter::formatComponents(
                 result += aw_logger::Color::endColor;
             }
         }
-        return result;
-        /* code */
     } catch (const std::exception& ex)
     {
         std::cerr << ex.what() << '\n' << std::endl;
     }
+    return result;
 }
 
 inline std::string Formatter::formatColor(std::string_view format)
@@ -179,13 +169,13 @@ inline std::string Formatter::formatColor(std::string_view format)
         std::cerr << ex.what() << '\n' << std::endl;
     }
 
-    return Formatter::format("\033[38;2;{};{};{}m", r, g, b);
+    return Formatter::vformat("\033[38;2;{};{};{}m", r, g, b);
 }
 
 inline std::string
 Formatter::formatSourceLocation(const LogEvent::Ptr& event, std::string_view format)
 {
-    auto loc = event->getSourceLocation();
+    auto const& loc = event->getSourceLocation();
     std::string result;
     result.reserve(format.size() + 100);
     size_t prev_pos = 0, pos = 0;

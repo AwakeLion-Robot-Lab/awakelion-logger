@@ -28,6 +28,7 @@
 
 // aw_logger library
 #include "aw_logger/appender.hpp"
+#include "aw_logger/log_event.hpp"
 #include "aw_logger/ring_buffer.hpp"
 
 /***
@@ -43,6 +44,10 @@
  * @author jinhua "siyiovo" deng
  */
 namespace aw_logger {
+class LogEvent;
+class BaseAppender;
+class ConsoleAppender;
+
 /***
  * @brief asynchronous logger class with a center ringbuffer
  * @details `std::enabled_shared_from_this` allow to manage the ONLY ONE share pointer of this class object
@@ -64,20 +69,15 @@ public:
     ~Logger();
 
     /***
-     * @brief start to run worker thread
+     * @brief initialize logger
      */
-    void start();
-
-    /***
-     * @brief stop running worker thread
-     */
-    void stop();
+    void init();
 
     /***
      * @brief submit log event pointer to ringbuffer
      * @param event enqueue event
      */
-    void submit(const LogEvent::Ptr& event);
+    void submit(const std::shared_ptr<LogEvent>& event);
 
     /***
      * @brief set log level threshold
@@ -85,8 +85,15 @@ public:
      */
     void setThresholdLevel(LogLevel::level thres)
     {
-        std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
-        threshold_level_ = thres;
+        threshold_level_.store(thres, std::memory_order_release);
+    }
+
+    /***
+     * @brief get log level threshold
+     */
+    inline LogLevel::level getThresLevel() const noexcept
+    {
+        return threshold_level_.load(std::memory_order_acquire);
     }
 
     /***
@@ -99,35 +106,18 @@ public:
      * @brief set appender to appender list
      * @param appender appender to be added
      */
-    void setAppender(const BaseAppender::Ptr& appender);
+    void setAppender(const std::shared_ptr<BaseAppender>& appender);
 
     /***
      * @brief remove specific appender from appender list
      * @param appender specific appender to be removed
      */
-    void removeAppender(const BaseAppender::Ptr& appender);
+    void removeAppender(const std::shared_ptr<BaseAppender>& appender);
 
     /***
      * @brief clear all appenders inside appender list
      */
     void clearAppenders();
-
-    /***
-     * @brief get logger name
-     * @return logger name
-     */
-    inline constexpr std::string getName() const noexcept
-    {
-        return name_;
-    }
-
-    /***
-     * @brief get log level threshold
-     */
-    inline constexpr LogLevel::level getThresLevel() const noexcept
-    {
-        return threshold_level_;
-    }
 
 private:
     /***
@@ -138,12 +128,7 @@ private:
     /***
      * @brief log event ringbuffer
      */
-    RingBuffer<LogEvent::Ptr> rb_;
-
-    /***
-     * @brief log level threshold
-     */
-    LogLevel::level threshold_level_;
+    RingBuffer<std::shared_ptr<LogEvent>> rb_;
 
     /***
      * @brief worker thread to pop out log message from ringbuffer to appenders
@@ -151,9 +136,19 @@ private:
     std::thread worker_;
 
     /***
+     * @brief log level threshold
+     */
+    std::atomic<LogLevel::level> threshold_level_;
+
+    /***
      * @brief flag to indicate whether the logger is running
      */
     std::atomic<bool> running_;
+
+    /***
+     * @brief start flag to ensure to start named logger ONLY ONCE
+     */
+    std::once_flag start_flag_;
 
     /***
      * @brief condition variable to notify the ringbuffer inside worker thread
@@ -184,12 +179,22 @@ private:
     /***
      * @brief list of appenders
      */
-    std::list<BaseAppender::Ptr> appenders_;
+    std::list<std::shared_ptr<BaseAppender>> appenders_;
 
     /***
      * @brief logger name
      */
     std::string name_;
+
+    /***
+     * @brief start to run worker thread
+     */
+    void start();
+
+    /***
+     * @brief stop running worker thread
+     */
+    void stop();
 };
 
 /***
@@ -197,15 +202,20 @@ private:
  */
 class LoggerManager {
 public:
-    /***
-     * @brief constructor
-     */
-    explicit LoggerManager();
-
     LoggerManager(const LoggerManager&) = delete;
     LoggerManager(LoggerManager&&) = delete;
     LoggerManager& operator=(const LoggerManager&) = delete;
     LoggerManager& operator=(LoggerManager&&) = delete;
+
+    /***
+     * @brief constructor
+     */
+    LoggerManager() {}
+
+    /***
+     * @brief destructor
+     */
+    ~LoggerManager();
 
     /***
      * @brief get static `std::shared_ptr` instance
@@ -214,6 +224,7 @@ public:
     static std::shared_ptr<LoggerManager> getInstance()
     {
         static std::shared_ptr<LoggerManager> instance = std::make_shared<LoggerManager>();
+        instance->init();
         return instance;
     }
 
@@ -223,6 +234,11 @@ public:
      * @return current logger
      */
     Logger::Ptr getLogger(const std::string& name);
+
+    /***
+     * @brief initialize root logger for ONLY ONCE
+     */
+    void init();
 
 private:
     /***
@@ -240,6 +256,16 @@ private:
      * @brief read and write logger manager mutex
      */
     std::shared_mutex rw_mtx_;
+
+    /***
+     * @brief start flag to ensure to start logger manager ONLY ONCE
+     */
+    std::once_flag start_flag_;
+
+    /***
+     * @brief destroy logger manager in RAII
+     */
+    void destroy();
 };
 } // namespace aw_logger
 

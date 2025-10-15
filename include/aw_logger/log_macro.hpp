@@ -16,7 +16,9 @@
 #define LOG_MACRO_HPP
 
 // C++ standard library
+#include <exception>
 #include <memory>
+#include <string>
 
 // aw_logger library
 #include "aw_logger/appender.hpp"
@@ -31,55 +33,52 @@
  * @author jinhua "siyiovo" deng
  */
 namespace aw_logger {
+template<typename... Args>
+std::string format_message(std::string_view fmt, Args&&... args)
+{
+    return Formatter::format(fmt, std::forward<Args>(args)...);
+}
+
+} // namespace aw_logger
+
 /***
  * @brief aw logger base macro definition
  * @param logger logger instance
  * @param level input log level
- * @param fmt log message
- * @param ... log message format arguments
+ * @param msg log message
+ * @details here we simply use `std::format` for `fmt` 'cause it just a `std::string`
  */
-#define AW_LOG_BASE(logger, level, fmt, ...) \
-    /* if the priority of input level higher than threshold level */ \
+#define AW_LOG_BASE(logger, level, msg) \
     if (level >= logger->getThresLevel()) \
-    LogEventWrap( \
-        std::make_shared<LogEvent>( \
-            logger, \
-            level, \
-            LogEvent::LocalSourceLocation<std::string>(Formatter::vformat(fmt, __VA_ARGS__)) \
-        ) \
-    )
+    { \
+        try \
+        { \
+            aw_logger::LogEventWrap( \
+                std::make_shared<aw_logger::LogEvent>( \
+                    logger, \
+                    level, \
+                    aw_logger::LogEvent::LocalSourceLocation<std::string>( \
+                        msg, \
+                        std::source_location::current() \
+                    ) \
+                ) \
+            ); \
+        } catch (std::exception & ex) \
+        { \
+            std::cerr << ex.what() << "\n" << std::endl; \
+        } \
+    }
 
-/***
- * @brief aw logger debug macro definition
- */
-#define AW_LOG_DEBUG(logger, fmt, ...) AW_LOG_BASE(logger, LogLevel::level::DEBUG, fmt, __VA_ARGS__)
+#define AW_LOG_DEBUG(logger, msg) AW_LOG_BASE(logger, aw_logger::LogLevel::level::DEBUG, msg)
 
-/***
- * @brief aw logger info macro definition
- */
-#define AW_LOG_INFO(logger, fmt, ...) AW_LOG_BASE(logger, LogLevel::level::INFO, fmt, __VA_ARGS__)
+#define AW_LOG_INFO(logger, msg) AW_LOG_BASE(logger, aw_logger::LogLevel::level::INFO, msg)
 
-/***
- * @brief aw logger notice macro definition
- */
-#define AW_LOG_NOTICE(logger, fmt, ...) \
-    AW_LOG_BASE(logger, LogLevel::level::NOTICE, fmt, __VA_ARGS__)
+#define AW_LOG_NOTICE(logger, msg) AW_LOG_BASE(logger, aw_logger::LogLevel::level::NOTICE, msg)
 
-/***
- * @brief aw logger warn macro definition
- */
-#define AW_LOG_WARN(logger, fmt, ...) AW_LOG_BASE(logger, LogLevel::level::WARN, fmt, __VA_ARGS__)
+#define AW_LOG_WARN(logger, msg) AW_LOG_BASE(logger, aw_logger::LogLevel::level::WARN, msg)
 
-/***
- * @brief aw logger error macro definition
- */
-#define AW_LOG_ERROR(logger, fmt, ...) AW_LOG_BASE(logger, LogLevel::level::ERROR, fmt, __VA_ARGS__)
+#define AW_LOG_ERROR(logger, msg) AW_LOG_BASE(logger, aw_logger::LogLevel::level::ERROR, msg)
 
-/***
- * @brief aw logger fatal macro definition
- */
-#define AW_LOG_FATAL(logger, fmt, ...) AW_LOG_BASE(logger, LogLevel::level::FATAL, fmt, __VA_ARGS__)
-
-} // namespace aw_logger
+#define AW_LOG_FATAL(logger, msg) AW_LOG_BASE(logger, aw_logger::LogLevel::level::FATAL, msg)
 
 #endif //! LOG_MACRO_HPP

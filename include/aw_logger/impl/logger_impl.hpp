@@ -15,19 +15,99 @@
 #define IMPL__LOGGER_IMPL_HPP
 
 // aw_logger library
+#include "aw_logger/exception.hpp"
 #include "aw_logger/logger.hpp"
 
 namespace aw_logger {
 inline Logger::Logger(const std::string& name):
-    name_(name),
-    threshold_level_(LogLevel::level::DEBUG),
     rb_(1024),
-    running_(false)
+    threshold_level_(LogLevel::level::DEBUG),
+    running_(false),
+    name_(name)
 {}
 
 inline Logger::~Logger()
 {
     stop();
+}
+
+void Logger::submit(const std::shared_ptr<LogEvent>& event)
+{
+    if (event == nullptr || event->getLogLevel() < threshold_level_)
+        return;
+
+    /* start logger */
+    start();
+
+    /* check whether have own appenders */
+    bool has_appenders = false;
+    Logger::Ptr curr_root_logger;
+    /* copy root logger for thread-safe */
+    {
+        std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
+        has_appenders = !appenders_.empty();
+        curr_root_logger = root_logger_;
+    }
+
+    /* if did not have appenders, use copy root logger to submit */
+    if (!has_appenders && (curr_root_logger != nullptr))
+    {
+        curr_root_logger->submit(event);
+        return;
+    }
+
+    /* push to ringbuffer */
+    /* 'cause this is hot path, you SHOULD NOT block it */
+    if (rb_.push(event))
+    {
+        std::unique_lock<std::mutex> cv_lk(cv_mtx_);
+        cv_.notify_one();
+    }
+}
+
+inline void Logger::setRootLogger(const Logger::Ptr& root_logger)
+{
+    if (root_logger == nullptr)
+        throw aw_logger::invalid_parameter("input root logger is nullptr!");
+
+    std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
+    root_logger_ = root_logger;
+}
+
+inline void Logger::setAppender(const std::shared_ptr<BaseAppender>& appender)
+{
+    if (appender == nullptr)
+    {
+        throw aw_logger::invalid_parameter("input appender is nullptr!");
+        return;
+    }
+
+    std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
+    appenders_.emplace_back(appender);
+}
+
+inline void Logger::removeAppender(const std::shared_ptr<BaseAppender>& appender)
+{
+    std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
+    for (auto it = appenders_.begin(); it != appenders_.end(); it++)
+    {
+        if (*it == appender)
+        {
+            appenders_.erase(it);
+            break;
+        }
+    }
+}
+
+inline void Logger::clearAppenders()
+{
+    std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
+    appenders_.clear();
+}
+
+void Logger::init()
+{
+    std::call_once(start_flag_, [this]() { start(); });
 }
 
 void Logger::start()
@@ -104,86 +184,9 @@ inline void Logger::stop()
         worker_.join();
 }
 
-void Logger::submit(const LogEvent::Ptr& event)
+inline LoggerManager::~LoggerManager()
 {
-    if (event == nullptr || event->getLogLevel() < threshold_level_)
-        return;
-
-    /* check whether have own appenders */
-    bool has_appenders = false;
-    Logger::Ptr curr_root_logger;
-    /* copy root logger for thread-safe */
-    {
-        std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
-        has_appenders = !appenders_.empty();
-        curr_root_logger = root_logger_;
-    }
-
-    /* if did not have appenders, use copy root logger to submit */
-    if (!has_appenders && (curr_root_logger != nullptr))
-    {
-        curr_root_logger->submit(event);
-        return;
-    }
-
-    /* push to ringbuffer */
-    /* 'cause this is hot path, you SHOULD NOT block it */
-    if (rb_.push(event))
-    {
-        std::unique_lock<std::mutex> cv_lk(cv_mtx_);
-        cv_.notify_one();
-    }
-}
-
-inline void Logger::setRootLogger(const Logger::Ptr& root_logger)
-{
-    if (root_logger == nullptr)
-    {
-        throw aw_logger::invalid_parameter("input root logger is nullptr!");
-        return;
-    }
-
-    std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
-    root_logger_ = root_logger;
-}
-
-inline void Logger::setAppender(const BaseAppender::Ptr& appender)
-{
-    if (appender == nullptr)
-    {
-        throw aw_logger::invalid_parameter("input appender is nullptr!");
-        return;
-    }
-
-    std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
-    appenders_.emplace_back(appender);
-}
-
-inline void Logger::removeAppender(const BaseAppender::Ptr& appender)
-{
-    std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
-    for (auto it = appenders_.begin(); it != appenders_.end(); it++)
-    {
-        if (*it == appender)
-        {
-            appenders_.erase(it);
-            break;
-        }
-    }
-}
-
-inline void Logger::clearAppenders()
-{
-    std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
-    appenders_.clear();
-}
-
-LoggerManager::LoggerManager()
-{
-    /* initialize root logger */
-    root_logger_ = std::make_shared<Logger>();
-    root_logger_->setAppender(std::make_shared<ConsoleAppender>());
-    loggers_map_.emplace(root_logger_->getName(), root_logger_);
+    destroy();
 }
 
 inline Logger::Ptr LoggerManager::getLogger(const std::string& name)
@@ -229,6 +232,22 @@ inline Logger::Ptr LoggerManager::getLogger(const std::string& name)
             return logger;
         }
     }
+}
+
+inline void LoggerManager::init()
+{
+    std::call_once(start_flag_, [this]() {
+        std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
+        root_logger_ = std::make_shared<Logger>("root");
+        root_logger_->setAppender(std::make_shared<ConsoleAppender>());
+        loggers_map_.emplace("root", root_logger_);
+        root_logger_->init();
+    });
+}
+
+inline void LoggerManager::destroy()
+{
+    loggers_map_.clear();
 }
 
 } // namespace aw_logger

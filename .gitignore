@@ -1,3 +1,6 @@
+# Build files
+build/
+
 # Vscode settings
 .vscode/
 

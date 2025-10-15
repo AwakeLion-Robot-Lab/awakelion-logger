@@ -1,0 +1,8 @@
+#ifndef AW_LOGGER_CONFIG_PATH_H
+#define AW_LOGGER_CONFIG_PATH_H
+
+#include <string>
+
+const std::string AW_LOGGER_CONFIG_FILE_PATH = "@AW_LOGGER_CONFIG_FILE@";
+
+#endif //! AW_LOGGER_CONFIG_PATH_H
