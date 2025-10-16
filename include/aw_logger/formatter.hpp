@@ -72,7 +72,7 @@ private:
     /***
      * @brief default log event format
      */
-    const nlohmann::json default_json_ = { "log_event",
+    const nlohmann::json default_json_ = { "components",
                                            { { { "type", "timestamp" }, { "enabled", true } },
                                              { { "type", "level" }, { "enabled", true } },
                                              { { "type", "tid" }, { "enabled", true } },

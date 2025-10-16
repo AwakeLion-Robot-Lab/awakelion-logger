@@ -85,12 +85,12 @@ protected:
     /***
      * @brief appender mutex
      */
-    std::mutex app_mtx_;
+    mutable std::mutex app_mtx_;
 
     /***
      * @brief formatter mutex
      */
-    std::mutex fmt_mtx_;
+    mutable std::mutex fmt_mtx_;
 
     /***
      * @brief format log message
@@ -131,7 +131,7 @@ private:
     /***
      * @brief synchronized output stream
      */
-    std::osyncstream sync_stream_;
+    mutable std::osyncstream sync_stream_;
 };
 
 /***

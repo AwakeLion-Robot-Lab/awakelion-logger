@@ -52,7 +52,10 @@ public:
          * @tparam U universal reference type
          * @param u_ref universal reference of input data
          * @param loc local source location
-         * @note `consteval` ensure that the constructor is called at compile time, so `loc_` is initialized at it
+         * @details
+         * the core of real source location is default parameter
+         * which means that the real source location is the call site of `LogEvent` constructor
+         * you can refer to `log_macro.hpp`
          */
         template<typename U>
             requires std::constructible_from<

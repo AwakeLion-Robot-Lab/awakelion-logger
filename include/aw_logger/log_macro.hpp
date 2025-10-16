@@ -33,6 +33,13 @@
  * @author jinhua "siyiovo" deng
  */
 namespace aw_logger {
+/***
+ * @brief format input log message
+ * @tparam Args variadic template parameter
+ * @param fmt format string
+ * @param args variadic template parameter
+ * @return formatted message
+ */
 template<typename... Args>
 std::string format_message(std::string_view fmt, Args&&... args)
 {
@@ -46,7 +53,6 @@ std::string format_message(std::string_view fmt, Args&&... args)
  * @param logger logger instance
  * @param level input log level
  * @param msg log message
- * @details here we simply use `std::format` for `fmt` 'cause it just a `std::string`
  */
 #define AW_LOG_BASE(logger, level, msg) \
     if (level >= logger->getThresLevel()) \

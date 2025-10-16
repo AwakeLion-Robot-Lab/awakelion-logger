@@ -4,6 +4,9 @@ build/
 # Vscode settings
 .vscode/
 
+# generated config_path header file
+include/aw_logger/config_path.h
+
 # Prerequisites
 *.d
 

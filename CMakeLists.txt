@@ -7,30 +7,28 @@ project(
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# 编译器特定配置
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic")
+  add_compile_options(-Wall -Wextra -Wpedantic)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
-  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -w")
+  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O2 -g")
 endif()
 
-set(AW_LOGGER_CONFIG_DIR
-    "${CMAKE_SOURCE_DIR}/config"
-    CACHE PATH "Path to AW Logger configuration files")
-set(AW_LOGGER_CONFIG_FILE
-    "${AW_LOGGER_CONFIG_DIR}/aw_logger_settings.json"
-    CACHE PATH "Path to AW Logger configuration file")
+set(CONFIG_FILE_PATH
+    "${CMAKE_SOURCE_DIR}/config/aw_logger_settings.json"
+    CACHE PATH "Path to Awakelion Logger configuration file")
 
-add_definitions(-DAW_LOGGER_CONFIG_FILE="${AW_LOGGER_CONFIG_FILE}")
-
-if(NOT EXISTS "${AW_LOGGER_CONFIG_DIR}")
-  file(MAKE_DIRECTORY "${AW_LOGGER_CONFIG_DIR}")
+if(NOT EXISTS ${CONFIG_FILE_PATH})
+  message(FATAL_ERROR "Configuration file not found: ${CONFIG_FILE_PATH}")
+  file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/include/aw_logger")
 endif()
 
-include_directories(include include/3rdparty)
-
-add_library(nlohmann_json INTERFACE)
-target_include_directories(nlohmann_json INTERFACE include/3rdparty/nlohmann)
+configure_file(
+  "${CMAKE_SOURCE_DIR}/cmake/config_path.h.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/include/aw_logger/config_path.h" @ONLY)
 
 set(AW_LOGGER_HEADERS
     include/aw_logger/log_macro.hpp
@@ -53,9 +51,16 @@ set(AW_LOGGER_HEADERS
 
 set(AW_LOGGER_EXAMPLES example/hello_aw_logger.cpp)
 
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
+include_directories(include include/3rdparty)
+
+add_library(nlohmann_json INTERFACE)
 add_library(aw_logger STATIC ${AW_LOGGER_HEADERS} ${AW_LOGGER_EXAMPLES})
 
-target_include_directories(aw_logger PUBLIC include)
+target_include_directories(nlohmann_json INTERFACE include/3rdparty/nlohmann)
+target_include_directories(aw_logger PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/include
+                                            include)
+
 target_link_libraries(aw_logger PUBLIC nlohmann_json)
 
 foreach(example ${AW_LOGGER_EXAMPLES})
@@ -66,8 +71,9 @@ endforeach()
 
 install(
   TARGETS aw_logger
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib)
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 install(
   DIRECTORY include/aw_logger
@@ -75,4 +81,5 @@ install(
   FILES_MATCHING
   PATTERN "*.hpp")
 
-install(FILES config/aw_logger_settings.json DESTINATION config)
+install(FILES config/aw_logger_settings.json
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/aw_logger)

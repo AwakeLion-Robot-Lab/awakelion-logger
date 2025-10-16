@@ -39,29 +39,38 @@ void Logger::submit(const std::shared_ptr<LogEvent>& event)
     /* start logger */
     start();
 
-    /* check whether have own appenders */
+    /* copy status of appenders */
     bool has_appenders = false;
-    Logger::Ptr curr_root_logger;
-    /* copy root logger for thread-safe */
     {
         std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
         has_appenders = !appenders_.empty();
-        curr_root_logger = root_logger_;
     }
 
-    /* if did not have appenders, use copy root logger to submit */
-    if (!has_appenders && (curr_root_logger != nullptr))
+    /* check whether have own appenders */
+    if (has_appenders)
     {
-        curr_root_logger->submit(event);
+        if (rb_.push(event))
+        {
+            std::unique_lock<std::mutex> cv_lk(cv_mtx_);
+            cv_.notify_one();
+        }
         return;
     }
 
-    /* push to ringbuffer */
-    /* 'cause this is hot path, you SHOULD NOT block it */
-    if (rb_.push(event))
+    /* if do not have own appenders, use root logger */
+    Logger::Ptr curr_root_logger;
     {
-        std::unique_lock<std::mutex> cv_lk(cv_mtx_);
-        cv_.notify_one();
+        std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
+        curr_root_logger = root_logger_;
+    }
+
+    if (curr_root_logger != nullptr)
+    {
+        curr_root_logger->submit(event);
+    }
+    else
+    {
+        throw aw_logger::invalid_parameter("root logger is nullptr!");
     }
 }
 
@@ -165,7 +174,7 @@ void Logger::start()
                     std::cerr << ex.what() << '\n' << std::endl;
                 } catch (...)
                 {
-                    std::cerr << "unknown exception in logger worker thread!\n" << std::endl;
+                    std::cerr << "unknown exception in logger worker thread.\n" << std::endl;
                 }
             }
         }

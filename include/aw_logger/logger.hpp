@@ -119,6 +119,12 @@ public:
      */
     void clearAppenders();
 
+    std::string getName() const noexcept
+    {
+        std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
+        return name_;
+    }
+
 private:
     /***
      * @brief root logger
@@ -163,7 +169,7 @@ private:
      * @details
      * this mutex is used to protect the condition variable, it MUST BE independent with `rw_mtx_`
      */
-    std::mutex cv_mtx_;
+    mutable std::mutex cv_mtx_;
 
     /***
      * @brief read and write logger mutex
@@ -174,7 +180,7 @@ private:
      * push message to ringbuffer is a kind of hot path, it should be lock-free ought to be faster
      * so in fact, this shared mutex protect appender operation and it is not involved in ringbuffer operation
      */
-    std::shared_mutex rw_mtx_;
+    mutable std::shared_mutex rw_mtx_;
 
     /***
      * @brief list of appenders
@@ -255,7 +261,7 @@ private:
     /***
      * @brief read and write logger manager mutex
      */
-    std::shared_mutex rw_mtx_;
+    mutable std::shared_mutex rw_mtx_;
 
     /***
      * @brief start flag to ensure to start logger manager ONLY ONCE

@@ -20,7 +20,7 @@
 #include <fstream>
 
 // aw_logger library
-#include "aw_logger/config_path.h.in"
+#include "aw_logger/config_path.h"
 #include "aw_logger/exception.hpp"
 #include "aw_logger/formatter.hpp"
 
@@ -28,9 +28,7 @@ namespace aw_logger {
 
 ComponentFactory::ComponentFactory()
 {
-#ifdef AW_LOGGER_CONFIG_FILE
-    const std::string setting_path = AW_LOGGER_CONFIG_FILE;
-#endif
+    const std::string setting_path = CONFIG_FILE_PATH;
     loadSettingComponents(setting_path);
     registerComponents(setting_json_);
 }
@@ -48,13 +46,13 @@ void ComponentFactory::loadSettingComponents(std::string_view file_name)
     setting_json_ = nlohmann::json::parse(setting_file);
     setting_file.close();
 
-    if (!setting_json_.contains("log_event"))
+    if (!setting_json_.contains("components"))
         setting_json_ = default_json_;
 }
 
 inline void ComponentFactory::registerComponents(const nlohmann::json& json)
 {
-    for (const auto& component: json["log_event"])
+    for (const auto& component: json["components"])
     {
         if (component["enabled"].get<bool>())
         {
@@ -101,7 +99,7 @@ std::string Formatter::formatComponents(
         throw aw_logger::invalid_parameter("log event pointer is nullptr!");
 
     std::string result;
-    result.reserve(512);
+    result.reserve(256);
 
     try
     {
@@ -134,8 +132,9 @@ std::string Formatter::formatComponents(
             else if (type == "msg")
             {
                 result += formatMsg(event);
-                result += aw_logger::Color::endColor;
             }
+
+            result += aw_logger::Color::endColor;
         }
     } catch (const std::exception& ex)
     {
@@ -149,8 +148,12 @@ inline std::string Formatter::formatColor(std::string_view format)
     const auto& color_map = Color::getColorMap();
     /* default color is white */
     int r = 255, g = 255, b = 255;
-    auto it = color_map.find(format);
 
+    /* convert to `std::string` in lower */
+    std::string color_name(format);
+    std::transform(color_name.begin(), color_name.end(), color_name.begin(), ::tolower);
+
+    auto it = color_map.find(format);
     try
     {
         /* if color is found, convert hex to rgb */
@@ -169,6 +172,7 @@ inline std::string Formatter::formatColor(std::string_view format)
         std::cerr << ex.what() << '\n' << std::endl;
     }
 
+    std::cout << "color is:" << r << g << b << std::endl;
     return Formatter::vformat("\033[38;2;{};{};{}m", r, g, b);
 }
 

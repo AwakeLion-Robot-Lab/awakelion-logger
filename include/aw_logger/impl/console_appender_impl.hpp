@@ -30,7 +30,7 @@ void ConsoleAppender::append(const LogEvent::Ptr& event)
 {
     std::lock_guard<std::mutex> lk(app_mtx_);
     const auto log_msg = formatMsg(event);
-    sync_stream_ << log_msg << std::endl;
+    std::cout << log_msg << std::endl;
 }
 
 } // namespace aw_logger
