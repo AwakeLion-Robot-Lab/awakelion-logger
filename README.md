@@ -1,3 +1,5 @@
+<div align="center">
+
 # Awakelion-Logger
 
 A low-latency, high-throughput and few-dependency logger for `AwakeLion Robot Lab` project. It's highly based on modern C++ standard library (C++20).
@@ -79,10 +81,10 @@ In fact, sequence is an atomic counter, according to source code, **it indicates
 
 #### How it update
 
-|                      |                  `push()`                  |                          `pop()`                          |
-| :-------------------: | :------------------------------------------: | :----------------------------------------------------------: |
+|                 |                  `push()`                  |                          `pop()`                           |
+| :-------------: | :----------------------------------------: | :--------------------------------------------------------: |
 | **description** | add to `curr_wIdx + 1`, move to next cell. | add to `curr_rIdx + capacity`, move to next mirror memory. |
-| **expression** |         `curr_seq = curr_wIdx + 1`         |             `curr_seq = curr_rIdx + mask_ + 1`             |
+| **expression**  |         `curr_seq = curr_wIdx + 1`         |             `curr_seq = curr_rIdx + mask_ + 1`             |
 
 #### Constructor
 
@@ -99,17 +101,17 @@ buffer_ = allocator_trait::allocate(alloc_, r_capacity);
 
 #### Producer perspective
 
-|        status        |                                                     available                                                     |                             pending                             |                                                                             unavailable                                                                             |
-| :-------------------: | :----------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------: |
+|     status      |                                                    available                                                     |                             pending                              |                                                                             unavailable                                                                             |
+| :-------------: | :--------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------: |
 | **description** | default to its index,<br />producer can write.<br />after update, it signal<br />to consumer for `ready` status. | occupied by another producer,<br />wait for write and try again. | this cell already wrap-around(property of unsigned int),<br />but write index not, that means all cells are written,<br /> which also means the ringbuffer is full. |
-| **expression** |                                                  `== curr_wIdx`                                                  |                         `> curr_wIdx`                         |                                                                           `< curr_wIdx`                                                                           |
+| **expression**  |                                                  `== curr_wIdx`                                                  |                          `> curr_wIdx`                           |                                                                            `< curr_wIdx`                                                                            |
 
 #### Consumer perspective
 
-|        status        |                                                           available                                                           |                                                    pending                                                    |                                 unavailable                                 |
-| :-------------------: | :----------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------: |
+|     status      |                                                         available                                                          |                                                   pending                                                   |                                 unavailable                                 |
+| :-------------: | :------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------: |
 | **description** | equal to value after `push()` update,<br />it means it's time to read,<br />which is similar to `std::condition_variable`. | this cell has already<br />read, try to load <br />`curr_rIdx` status again<br />for a next read operation. | data in all cells have been read,<br />which means the ringbuffer is empty. |
-| **expression** |                                                      `== curr_rIdx + 1`                                                      |                                              `> curr_rIdx + 1`                                              |                             `< curr_rIdx + 1`                             |
+| **expression**  |                                                     `== curr_rIdx + 1`                                                     |                                              `> curr_rIdx + 1`                                              |                              `< curr_rIdx + 1`                              |
 
 ## Dependencies
 
@@ -240,13 +242,13 @@ Performance tests conducted on the following environment:
 
 #### Multi-threaded Performance (Console Output)
 
-|        Metric        |              Value              |
-| :------------------: | :------------------------------: |
-|       Threads       |                8                |
-|      Total Logs      |             400,000             |
-|       Log Size       | 130-150 bytes(without file name) |
-|     Average Time     |       3628.4ms (5 rounds)       |
-| **Throughput** |   **~110,000 logs/sec**   |
+|     Metric     |              Value               |
+| :------------: | :------------------------------: |
+|    Threads     |                8                 |
+|   Total Logs   |             400,000              |
+|    Log Size    | 130-150 bytes(without file name) |
+|  Average Time  |       3628.4ms (5 rounds)        |
+| **Throughput** |      **~110,000 logs/sec**       |
 
 ## TODO
 
