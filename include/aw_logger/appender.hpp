@@ -53,6 +53,10 @@ public:
         auto factory = std::make_shared<ComponentFactory>();
         formatter_ = std::make_shared<Formatter>(factory);
     }
+
+    /***
+     * @brief destructor
+     */
     ~BaseAppender() = default;
 
     BaseAppender(const BaseAppender&) = delete;
@@ -65,6 +69,11 @@ public:
      * @param event log event
      */
     virtual void append(const LogEvent::Ptr& event) = 0;
+
+    /***
+     * @brief flush output buffer
+     */
+    virtual void flush() = 0;
 
     /***
      * @brief set formatter to appender
@@ -109,29 +118,41 @@ protected:
 };
 
 /***
- * @brief console appender class which output to console directly
+ * @brief console appender class which output to console directly via `std::osyncstream`
  */
 class ConsoleAppender: public BaseAppender {
 public:
-    explicit ConsoleAppender(std::string_view stream_type = "stdout"): sync_stream_(std::cout)
-    {
-        if (stream_type == "stdout")
-            sync_stream_ = std::osyncstream(std::cout);
-        else if (stream_type == "stderr")
-            sync_stream_ = std::osyncstream(std::cerr);
-        else
-            throw aw_logger::invalid_parameter(
-                "invalid stream type, please use 'stdout' or 'stderr'."
-            );
-    }
+    /***
+     * @brief construtor
+     * @param stream_type stream type, "stdout" - `std::cout` | "stderr" - `std::cerr`
+     */
+    explicit ConsoleAppender(std::string_view stream_type = "stdout"):
+        output_stream_(getStreamType(stream_type))
+    {}
 
+    /***
+     * @brief append to console
+     * @param event log event
+     */
     virtual void append(const LogEvent::Ptr& event) override;
+
+    /***
+     * @brief flush is a no-op for console appender since osyncstream auto-flushes on destruction
+     */
+    virtual void flush() override {}
 
 private:
     /***
-     * @brief synchronized output stream
+     * @brief reference to output stream，support `std::cout` and `std::cerr`
      */
-    mutable std::osyncstream sync_stream_;
+    std::ostream& output_stream_;
+
+    /***
+     * @brief get output stream type
+     * @param stream_type stream type
+     * @return reference to std::cout or std::cerr
+     */
+    inline static std::ostream& getStreamType(std::string_view stream_type);
 };
 
 /***

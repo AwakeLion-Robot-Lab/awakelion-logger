@@ -50,8 +50,12 @@ class ConsoleAppender;
 
 /***
  * @brief asynchronous logger class with a center ringbuffer
- * @details `std::enabled_shared_from_this` allow to manage the ONLY ONE share pointer of this class object
- * @details via `std::shared_from_this`, which is CRTP
+ * @note I'm strongly remind you that you should resize via test,
+ * @note if the number consumers is lower than producer a lot, `capacity` should be lower than 512.
+ * @note or `capacity` recommended to higher than 1024.
+ * @details
+ * `std::enabled_shared_from_this` allow to manage the ONLY ONE share pointer of this class object
+ *  via `std::shared_from_this`, which is CRTP
  */
 class Logger: public std::enable_shared_from_this<Logger> {
 public:
@@ -118,6 +122,12 @@ public:
      * @brief clear all appenders inside appender list
      */
     void clearAppenders();
+
+    /***
+     * @brief flush all pending log events
+     * @details wait until ringbuffer is empty and all appenders are flushed
+     */
+    void flush();
 
     std::string getName() const noexcept
     {

@@ -58,27 +58,27 @@ inline void ComponentFactory::registerComponents(const nlohmann::json& json)
             const auto& type = component["type"];
             /* color */
             if (type == "color")
-                registered_components_.emplace("color", component["level_colors"].dump(4));
+                registered_components_.push_back({ "color", component["level_colors"].dump(4) });
 
             /* timestamp */
             if (type == "timestamp")
-                registered_components_.emplace("timestamp", "");
+                registered_components_.push_back({ "timestamp", "" });
 
             /* level */
             if (type == "level")
-                registered_components_.emplace("level", "");
+                registered_components_.push_back({ "level", "" });
 
             /* thread id */
             if (type == "tid")
-                registered_components_.emplace("tid", "");
+                registered_components_.push_back({ "tid", "" });
 
             /* source location */
             if (type == "loc")
-                registered_components_.emplace("loc", component.value("format", ""));
+                registered_components_.push_back({ "loc", component.value("format", "") });
 
             /* message */
             if (type == "msg")
-                registered_components_.emplace("msg", "");
+                registered_components_.push_back({ "msg", "" });
         }
     }
 }
@@ -90,7 +90,7 @@ inline Formatter::Formatter(const ComponentFactory::Ptr& factory)
 
 std::string Formatter::formatComponents(
     const LogEvent::Ptr& event,
-    const std::map<std::string, std::string>& components
+    const std::vector<std::pair<std::string, std::string>>& components
 )
 {
     /* validate log event pointer */
@@ -100,8 +100,31 @@ std::string Formatter::formatComponents(
     std::string result;
     result.reserve(500);
 
+    /* pre-scan to find color settings */
+    std::string color_code;
+    for (const auto& [type, format]: components)
+    {
+        if (type == "color")
+        {
+            const auto level_colors = nlohmann::json::parse(format);
+            std::string level_str = event->getLogLevelString();
+
+            /* convert to lowercase for JSON key-value pair matching */
+            std::transform(level_str.begin(), level_str.end(), level_str.begin(), ::tolower);
+
+            if (level_colors.contains(level_str))
+            {
+                color_code = formatColor(level_colors[level_str].get<std::string>());
+            }
+            break;
+        }
+    }
+
     try
     {
+        /* if has color code, just format level and log message */
+        const bool is_has_color_code = !color_code.empty();
+
         for (const auto& [type, format]: components)
         {
             if (type == "timestamp")
@@ -110,7 +133,15 @@ std::string Formatter::formatComponents(
             }
             else if (type == "level")
             {
+                if (is_has_color_code)
+                {
+                    result += color_code;
+                }
                 result += formatLevel(event);
+                if (is_has_color_code)
+                {
+                    result += aw_logger::Color::endColor;
+                }
             }
             else if (type == "tid")
             {
@@ -122,18 +153,21 @@ std::string Formatter::formatComponents(
             }
             else if (type == "color")
             {
-                const auto level_colors = nlohmann::json::parse(format);
-                const auto level_str = event->getLogLevelString();
-
-                if (level_colors.contains(level_str))
-                    result += formatColor(level_colors[level_str].get<std::string>());
+                /* skip color component, already handled in pre-scan */
+                continue;
             }
             else if (type == "msg")
             {
+                if (is_has_color_code)
+                {
+                    result += color_code;
+                }
                 result += formatMsg(event);
+                if (is_has_color_code)
+                {
+                    result += aw_logger::Color::endColor;
+                }
             }
-
-            result += aw_logger::Color::endColor;
         }
     } catch (const std::exception& ex)
     {
@@ -147,10 +181,6 @@ inline std::string Formatter::formatColor(std::string_view format)
     const auto& color_map = Color::getColorMap();
     /* default color is white */
     int r = 255, g = 255, b = 255;
-
-    /* convert to `std::string` in lower */
-    std::string color_name(format);
-    std::transform(color_name.begin(), color_name.end(), color_name.begin(), ::tolower);
 
     auto it = color_map.find(format);
     try
@@ -171,7 +201,6 @@ inline std::string Formatter::formatColor(std::string_view format)
         std::cerr << ex.what() << '\n' << std::endl;
     }
 
-    std::cout << "color is:" << r << g << b << std::endl;
     return Formatter::vformat("\033[38;2;{};{};{}m", r, g, b);
 }
 
@@ -211,7 +240,7 @@ Formatter::formatSourceLocation(const LogEvent::Ptr& event, std::string_view for
     }
 
     result.append(format.data() + prev_pos, format.size() - prev_pos);
-    return Formatter::vformat("({})", result);
+    return Formatter::vformat("{}", result);
 }
 
 } // namespace aw_logger

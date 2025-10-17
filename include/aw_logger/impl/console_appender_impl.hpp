@@ -28,9 +28,19 @@ namespace aw_logger {
 
 void ConsoleAppender::append(const LogEvent::Ptr& event)
 {
-    std::lock_guard<std::mutex> lk(app_mtx_);
     const auto log_msg = formatMsg(event);
-    std::cout << log_msg << std::endl;
+    /* create temporary osyncstream - automatically emits on destruction for thread-safe output */
+    std::osyncstream(output_stream_) << log_msg << std::endl;
+}
+
+inline std::ostream& aw_logger::ConsoleAppender::getStreamType(std::string_view stream_type)
+{
+    if (stream_type == "stdout")
+        return std::cout;
+    else if (stream_type == "stderr")
+        return std::cerr;
+    else
+        throw aw_logger::invalid_parameter("invalid stream type, please use 'stdout' or 'stderr'.");
 }
 
 } // namespace aw_logger

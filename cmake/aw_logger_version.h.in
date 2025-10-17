@@ -12,11 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef CONFIG_PATH_H
-#define CONFIG_PATH_H
+#ifndef AW_LOGGER__VERSION_HPP
+#define AW_LOGGER__VERSION_HPP
 
-#include <string>
+namespace aw_logger {
 
-const std::string CONFIG_FILE_PATH = "@CONFIG_FILE_PATH@";
+/***
+ * @brief Version information
+ */
+struct Version {
+    static constexpr int MAJOR = @PROJECT_VERSION_MAJOR @;
+    static constexpr int MINOR = @PROJECT_VERSION_MINOR @;
+    static constexpr int PATCH = @PROJECT_VERSION_PATCH @;
+    static constexpr const char* STRING = "@PROJECT_VERSION@";
+    static constexpr const char* NAME = "@PROJECT_NAME@";
+};
 
-#endif //! CONFIG_PATH_H
+} // namespace aw_logger
+
+#endif // AW_LOGGER__VERSION_HPP

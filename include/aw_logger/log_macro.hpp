@@ -43,7 +43,7 @@ namespace aw_logger {
 template<typename... Args>
 std::string format_message(std::string_view fmt, Args&&... args)
 {
-    return Formatter::format(fmt, std::forward<Args>(args)...);
+    return std::vformat(fmt, std::make_format_args(std::forward<Args>(args)...));
 }
 
 } // namespace aw_logger
@@ -75,6 +75,34 @@ std::string format_message(std::string_view fmt, Args&&... args)
         } \
     }
 
+/***
+ * @brief aw logger fmt macro definition with `std::format` support
+ * @param logger logger instance
+ * @param level input log level
+ * @param fmt unformatted log message
+ * @param ... variadic arguments
+ */
+#define AW_LOG_FMT_BASE(logger, level, fmt, ...) \
+    if (level >= logger->getThresLevel()) \
+    { \
+        try \
+        { \
+            aw_logger::LogEventWrap( \
+                std::make_shared<aw_logger::LogEvent>( \
+                    logger, \
+                    level, \
+                    aw_logger::LogEvent::LocalSourceLocation<std::string>( \
+                        aw_logger::format_message(fmt, ##__VA_ARGS__), \
+                        std::source_location::current() \
+                    ) \
+                ) \
+            ); \
+        } catch (std::exception & ex) \
+        { \
+            std::cerr << ex.what() << "\n" << std::endl; \
+        } \
+    }
+
 #define AW_LOG_DEBUG(logger, msg) AW_LOG_BASE(logger, aw_logger::LogLevel::level::DEBUG, msg)
 
 #define AW_LOG_INFO(logger, msg) AW_LOG_BASE(logger, aw_logger::LogLevel::level::INFO, msg)
@@ -86,5 +114,23 @@ std::string format_message(std::string_view fmt, Args&&... args)
 #define AW_LOG_ERROR(logger, msg) AW_LOG_BASE(logger, aw_logger::LogLevel::level::ERROR, msg)
 
 #define AW_LOG_FATAL(logger, msg) AW_LOG_BASE(logger, aw_logger::LogLevel::level::FATAL, msg)
+
+#define AW_LOG_FMT_DEBUG(logger, fmt, ...) \
+    AW_LOG_FMT_BASE(logger, aw_logger::LogLevel::level::DEBUG, fmt, ##__VA_ARGS__)
+
+#define AW_LOG_FMT_INFO(logger, fmt, ...) \
+    AW_LOG_FMT_BASE(logger, aw_logger::LogLevel::level::INFO, fmt, ##__VA_ARGS__)
+
+#define AW_LOG_FMT_NOTICE(logger, fmt, ...) \
+    AW_LOG_FMT_BASE(logger, aw_logger::LogLevel::level::NOTICE, fmt, ##__VA_ARGS__)
+
+#define AW_LOG_FMT_WARN(logger, fmt, ...) \
+    AW_LOG_FMT_BASE(logger, aw_logger::LogLevel::level::WARN, fmt, ##__VA_ARGS__)
+
+#define AW_LOG_FMT_ERROR(logger, fmt, ...) \
+    AW_LOG_FMT_BASE(logger, aw_logger::LogLevel::level::ERROR, fmt, ##__VA_ARGS__)
+
+#define AW_LOG_FMT_FATAL(logger, fmt, ...) \
+    AW_LOG_FMT_BASE(logger, aw_logger::LogLevel::level::FATAL, fmt, ##__VA_ARGS__)
 
 #endif //! LOG_MACRO_HPP

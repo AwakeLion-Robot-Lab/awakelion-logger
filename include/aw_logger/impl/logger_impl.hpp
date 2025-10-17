@@ -20,7 +20,7 @@
 
 namespace aw_logger {
 inline Logger::Logger(const std::string& name):
-    rb_(1024),
+    rb_(256),
     threshold_level_(LogLevel::level::DEBUG),
     running_(false),
     name_(name)
@@ -28,6 +28,8 @@ inline Logger::Logger(const std::string& name):
 
 inline Logger::~Logger()
 {
+    /* flush ringbuffer and stop */
+    flush();
     stop();
 }
 
@@ -112,6 +114,22 @@ inline void Logger::clearAppenders()
 {
     std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
     appenders_.clear();
+}
+
+inline void Logger::flush()
+{
+    /* wait until ringbuffer is empty */
+    while (rb_.getSize() > 0)
+    {
+        std::this_thread::yield();
+    }
+
+    /* flush all appenders */
+    std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
+    for (const auto& app: appenders_)
+    {
+        app->flush();
+    }
 }
 
 void Logger::init()

@@ -58,10 +58,11 @@ public:
     explicit ComponentFactory(std::string_view pattern);
 
     /***
-     * @brief map of registered components
-     * @details {type: unformatted data}
+     * @brief ordered vector of registered components
+     * @details preserve the order from JSON config file
+     * @note vector of {type: unformatted data} pairs
      */
-    std::map<std::string, std::string> registered_components_;
+    std::vector<std::pair<std::string, std::string>> registered_components_;
 
 private:
     /***
@@ -184,20 +185,20 @@ public:
     /***
      * @brief format log message into `std::string` within registered components
      * @param event log event
-     * @param components registered components map
+     * @param components registered components ordered vector
      * @return formatted log message
      * @details the format is able to be customized in `logger_settings.json`
      */
     std::string formatComponents(
         const LogEvent::Ptr& event,
-        const std::map<std::string, std::string>& components
+        const std::vector<std::pair<std::string, std::string>>& components
     );
 
     /***
-     * @brief get registered components map
-     * @return registered components map
+     * @brief get registered components ordered vector
+     * @return registered components ordered vector
      */
-    auto getRegisteredComponents() -> const std::map<std::string, std::string>&
+    auto getRegisteredComponents() -> const std::vector<std::pair<std::string, std::string>>&
     {
         return factory_->registered_components_;
     }
