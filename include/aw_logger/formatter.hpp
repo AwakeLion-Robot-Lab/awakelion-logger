@@ -38,7 +38,7 @@
 namespace aw_logger {
 
 /***
- * @brief component factory to manager component registration via json file
+ * @brief component factory to manager component registration via json file or runtime pattern
  */
 class ComponentFactory {
 public:

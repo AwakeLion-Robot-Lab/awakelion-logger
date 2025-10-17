@@ -16,7 +16,6 @@
 #define IMPL__FORMATTER_IMPL_HPP
 
 // C++ standard library
-#include <filesystem>
 #include <fstream>
 
 // aw_logger library
@@ -99,7 +98,7 @@ std::string Formatter::formatComponents(
         throw aw_logger::invalid_parameter("log event pointer is nullptr!");
 
     std::string result;
-    result.reserve(256);
+    result.reserve(500);
 
     try
     {

@@ -2,7 +2,14 @@
 
 A low-latency, high-throughput and few-dependency logger for `AwakeLion Robot Lab` project. It's highly based on modern C++ standard library (C++20).
 
-[![super-linter-cpp](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/super-linter-cpp.yml/badge.svg)](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/super-linter-cpp.yml)
+<div align="center">
+
+[ ![super-linter-cpp](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/super-linter-cpp.yml/badge.svg)](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/super-linter-cpp.yml)
+
+English | [简体中文](./README.zh_CN.md)
+
+</div>
+
 
 ---
 
@@ -48,19 +55,20 @@ flowchart LR
 
 * Awakelion-Logger is based on async-logger(MPSC) and sync-appender(SPSC) mode, which is inspired from [log4j2](https://logging.apache.org/log4j/2.12.x/).
 * Whole strcuture is based on [sylar-logger](https://github.com/sylar-yin/sylar/blob/master/sylar%2Flog.h), which means that use logger manager singleton class to manage multi-loggers in multi-threads. Besides, modern c++ function is inspired from [minilog](https://github.com/archibate/minilog) and [fmtlib](https://github.com/fmtlib).
+* the design of appenders are inspired by `sink` in [spdlog](https://github.com/gabime/spdlog/tree/v1.x/include/spdlog/sinks).
 
 ### Core of asynchronous
 
-* The core of implementation about asynchronous is MPMC ringbuffer, which is lock-free and with mirrored index memory. I take in a lot of reference below:
+The core of implementation about asynchronous is **MPMC ringbuffer**, which is lock-free and with mirrored index memory. I take in a lot of reference below:
 
-> * [kfifo](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/lib/kfifo.c) for mirrored index memory.
-> * Deeply inspired by  [Vyukov&#39;s MPMCQueue](https://www.1024cores.net/home/lock-free-algorithms/queues/bounded-mpmc-queue), which is a better way to adapt MPMC model.
-> * Use `std::allocator` as standard of memory allocation, like placement new and buffer destruct.
+* Deeply inspired by  [Vyukov&#39;s MPMCQueue](https://www.1024cores.net/home/lock-free-algorithms/queues/bounded-mpmc-queue), which is a better way to adapt MPMC model.
+* [kfifo](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/lib/kfifo.c) for mirrored index memory.
+* Use `std::allocator` as standard of memory allocation, like placement new.
 
 > [!NOTE]
 > I already found a helpful [blog](https://pskrgag.github.io/post/mpmc_vuykov/) to explain Vyukov's MPMCQueue, and here I provide my thought.
 
-**The core of Vyukov's MPMCQueue is the sequence of cell**, here cell is the base unit of ringbuffer, which includes sequence and input `DataT` data.
+**The core of Vyukov's MPMCQueue is the sequence of each cell**, here cell is the base element of ringbuffer, which includes sequence and input `DataT` data.
 
 In fact, sequence is an atomic counter, according to source code, **it indicates the status of between cell and operator thread**.
 
@@ -98,20 +106,20 @@ buffer_ = allocator_trait::allocate(alloc_, r_capacity);
 
 #### Consumer perspective
 
-|        status        |                             available                             |                                                     pending                                                     |                                 unavailable                                 |
-| :-------------------: | :---------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------: |
-| **description** | equal to value<br /> after `push()` update,<br />time to read. | this cell has already<br />read, try to load <br />`curr_rIdx` status again<br />for a next read operation. | data in all cells have been read,<br />which means the ringbuffer is empty. |
-| **expression** |                       `== curr_rIdx + 1`                       |                                               `> curr_rIdx + 1`                                               |                             `< curr_rIdx + 1`                             |
+|        status        |                                                            available                                                            |                                                     pending                                                     |                                 unavailable                                 |
+| :-------------------: | :------------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------: |
+| **description** | equal to value after `push()` update,<br />it means it's time to read,<br />which is similar to `std::condition_variable`. | this cell has already<br />read, try to load <br />`curr_rIdx` status again<br />for a next read operation. | data in all cells have been read,<br />which means the ringbuffer is empty. |
+| **expression** |                                                       `== curr_rIdx + 1`                                                       |                                               `> curr_rIdx + 1`                                               |                             `< curr_rIdx + 1`                             |
 
 ## Dependencies
 
 ### nlohmann JSON
 
-a flexible and light-weighted JSON C++ library for log pattern customization. It's already inside `include/nlohmann` folder.
+a flexible and light-weighted JSON C++ library for log pattern customization. It's already inside `include/nlohmann` folder, and its version is `3.12.0`.
 
 ### uWebSockets
 
-a light-weighted C++ websocket header-only library for monitoring log information so that you can watch debugs in real time remotely.
+a light-weighted C++ websocket header-only library for monitoring log information so that you can watch debugs in real time remotely. I will release a web for awakelion-logger logging.
 
 ## Installation
 
