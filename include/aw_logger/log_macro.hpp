@@ -41,9 +41,9 @@ namespace aw_logger {
  * @return formatted message
  */
 template<typename... Args>
-std::string format_message(std::string_view fmt, Args&&... args)
+std::string format_message(std::string_view fmt, const Args&... args)
 {
-    return std::vformat(fmt, std::make_format_args(std::forward<Args>(args)...));
+    return std::vformat(fmt, std::make_format_args(args...));
 }
 
 } // namespace aw_logger

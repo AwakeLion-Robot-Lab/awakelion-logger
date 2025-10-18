@@ -168,9 +168,9 @@ public:
      * @param args universal parameter pack
      */
     template<typename... Args>
-    inline std::string vformat(std::string_view fmt, Args&&... args)
+    inline std::string vformat(std::string_view fmt, const Args&... args)
     {
-        return std::vformat(fmt, std::make_format_args(std::forward<Args>(args)...));
+        return std::vformat(fmt, std::make_format_args(args...));
     }
 
     /***
@@ -234,7 +234,8 @@ private:
      */
     std::string formatLevel(const LogEvent::Ptr& event)
     {
-        return Formatter::vformat("[{}]", event->getLogLevelString());
+        auto level = event->getLogLevelString();
+        return Formatter::vformat("[{}]", level);
     }
 
     /***
@@ -244,7 +245,8 @@ private:
      */
     std::string formatTimestamp(const LogEvent::Ptr& event)
     {
-        return Formatter::vformat("[{}]", event->getTimestamp());
+        auto timestamp = event->getTimestamp();
+        return Formatter::vformat("[{}]", timestamp);
     }
 
     /***
@@ -260,7 +262,8 @@ private:
      */
     std::string formatThreadId(const LogEvent::Ptr& event)
     {
-        return Formatter::vformat("[tid: {}]", event->getThreadId());
+        auto tid = event->getThreadId();
+        return Formatter::vformat("[tid: {}]", tid);
     }
 };
 
