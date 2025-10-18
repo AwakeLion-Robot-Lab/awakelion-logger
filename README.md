@@ -81,10 +81,10 @@ In fact, sequence is an atomic counter, according to source code, **it indicates
 
 #### How it update
 
-|                 |                  `push()`                  |                          `pop()`                           |
-| :-------------: | :----------------------------------------: | :--------------------------------------------------------: |
+|                      |                  `push()`                  |                          `pop()`                          |
+| :-------------------: | :------------------------------------------: | :----------------------------------------------------------: |
 | **description** | add to `curr_wIdx + 1`, move to next cell. | add to `curr_rIdx + capacity`, move to next mirror memory. |
-| **expression**  |         `curr_seq = curr_wIdx + 1`         |             `curr_seq = curr_rIdx + mask_ + 1`             |
+| **expression** |         `curr_seq = curr_wIdx + 1`         |             `curr_seq = curr_rIdx + mask_ + 1`             |
 
 #### Constructor
 
@@ -101,17 +101,17 @@ buffer_ = allocator_trait::allocate(alloc_, r_capacity);
 
 #### Producer perspective
 
-|     status      |                                                    available                                                     |                             pending                              |                                                                             unavailable                                                                             |
-| :-------------: | :--------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------: |
+|        status        |                                                     available                                                     |                             pending                             |                                                                             unavailable                                                                             |
+| :-------------------: | :----------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------: |
 | **description** | default to its index,<br />producer can write.<br />after update, it signal<br />to consumer for `ready` status. | occupied by another producer,<br />wait for write and try again. | this cell already wrap-around(property of unsigned int),<br />but write index not, that means all cells are written,<br /> which also means the ringbuffer is full. |
-| **expression**  |                                                  `== curr_wIdx`                                                  |                          `> curr_wIdx`                           |                                                                            `< curr_wIdx`                                                                            |
+| **expression** |                                                  `== curr_wIdx`                                                  |                         `> curr_wIdx`                         |                                                                           `< curr_wIdx`                                                                           |
 
 #### Consumer perspective
 
-|     status      |                                                         available                                                          |                                                   pending                                                   |                                 unavailable                                 |
-| :-------------: | :------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------: |
+|        status        |                                                           available                                                           |                                                    pending                                                    |                                 unavailable                                 |
+| :-------------------: | :----------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------: |
 | **description** | equal to value after `push()` update,<br />it means it's time to read,<br />which is similar to `std::condition_variable`. | this cell has already<br />read, try to load <br />`curr_rIdx` status again<br />for a next read operation. | data in all cells have been read,<br />which means the ringbuffer is empty. |
-| **expression**  |                                                     `== curr_rIdx + 1`                                                     |                                              `> curr_rIdx + 1`                                              |                              `< curr_rIdx + 1`                              |
+| **expression** |                                                      `== curr_rIdx + 1`                                                      |                                              `> curr_rIdx + 1`                                              |                             `< curr_rIdx + 1`                             |
 
 ## Dependencies
 
@@ -160,7 +160,8 @@ add_subdirectory(path/to/awakelion-logger)
 target_link_libraries(your_target PRIVATE aw_logger)
 ```
 
-    Or with CMake FetchContent:
+
+Or with CMake FetchContent:
 
 ```cmake
 include(FetchContent)
@@ -173,9 +174,10 @@ FetchContent_MakeAvailable(aw_logger)
 target_link_libraries(your_target PRIVATE aw_logger)
 ```
 
-    with CMake, the library automatically handles include paths and dependencies.
 
-    and just make it! Now just include in your C++ files like below:
+with CMake, the library automatically handles include paths and dependencies.
+
+and just make it! Now just include in your C++ files like below:
 
 ```cpp
 #include "aw_logger/aw_logger.hpp"
@@ -183,7 +185,7 @@ target_link_libraries(your_target PRIVATE aw_logger)
 
 ### Quick Start Example
 
-you can build test file and `./hello_aw_logger` to check out quickly, or you can write you first aw_logger file like below:
+you can build test file and use command `./hello_aw_logger` to check out quickly, or you can write you first aw_logger file like below:
 
 ```cpp
 #include "aw_logger/aw_logger.hpp"
@@ -202,7 +204,7 @@ int main() {
 
 #### CMake Options
 
-- `BUILD_TESTING`: Enable building tests and benchmarks (default: OFF)
+- `BUILD_TESTING`: Enable building tests and benchmarks (default: `OFF`)
 - `CONFIG_FILE_PATH`: Path to logger configuration file (default: `config/aw_logger_settings.json`), auto-generated in build directory
 
 Only needed if you want to run tests or performance benchmarks:
@@ -237,18 +239,20 @@ ctest --output-on-failure
 Performance tests conducted on the following environment:
 
 - Platform: Linux, VMware Workstation 17pro
-- Performance: 4 core CPU, 5.7GB memory
+- Performance: 4 core CPU(usage < 20%), <1GB avaliable memory
 - Test tool: GoogleTest with [custom utilities](./test/utils.hpp)
 
 #### Multi-threaded Performance (Console Output)
 
-|     Metric     |              Value               |
-| :------------: | :------------------------------: |
-|    Threads     |                8                 |
-|   Total Logs   |             400,000              |
-|    Log Size    | 130-150 bytes(without file name) |
-|  Average Time  |       3628.4ms (5 rounds)        |
-| **Throughput** |      **~110,000 logs/sec**       |
+|        Metric        |                Value                |
+| :------------------: | :----------------------------------: |
+|       Threads       |                  8                  |
+|      Total Logs      |               400,000               |
+|       Log Size       | 130-150 bytes(without `file_name`) |
+|     Average Time     |         3628.4ms (5 rounds)         |
+| **Throughput** |     **~110,000 logs/sec**     |
+
+*Note: log size is includes all the format except for the `file_name`*
 
 ## TODO
 

@@ -1,5 +1,3 @@
-
-
 <div align="center">
 
 # Awakelion-Logger
@@ -57,8 +55,8 @@ flowchart LR
 ### 结构
 
 * Awakelion-Logger 基于 async-logger(MPSC) 和 sync-appender(SPSC) 模式，灵感来源于 [log4j2](https://logging.apache.org/log4j/2.12.x/)。
-* 整个结构基于 [sylar-logger](https://github.com/sylar-yin/sylar/blob/master/sylar%2Flog.h)，这意味着使用日志管理器单例类来管理多线程中的多个日志记录器。此外，现代 C++ 函数灵感来源于 [minilog](https://github.com/archibate/minilog) 和 [fmtlib](https://github.com/fmtlib)。
-* 附加器的设计灵感来源于 [spdlog](https://github.com/gabime/spdlog/tree/v1.x/include/spdlog/sinks) 中的 `sink`。
+* 整个日志框架的设计基于 [sylar-logger](https://github.com/sylar-yin/sylar/blob/master/sylar%2Flog.h)，这意味着使用日志管理器单例类来管理多线程中的多个日志记录器。此外，部分C++函数的实现灵感来源于 [minilog](https://github.com/archibate/minilog) 和 [fmtlib](https://github.com/fmtlib)。
+* 附加器（也称作输出器）的设计灵感来自于 [spdlog](https://github.com/gabime/spdlog/tree/v1.x/include/spdlog/sinks) 中的 `sink`。
 * 你可以在 [settings json](./config/aw_logger_settings.json) 中自定义你喜欢的日志事件，并且可以在不重新构建的情况下进行更改。
 
 ### 实现异步的核心
@@ -66,11 +64,11 @@ flowchart LR
 异步实现的核心是 **MPMC 环形缓冲区**，它是无锁的，并具有镜像指示位。我参考了很多开源，详见以下links：
 
 * 深受 [Vyukov&#39;s MPMCQueue](https://www.1024cores.net/home/lock-free-algorithms/queues/bounded-mpmc-queue) 的启发，这是适应 MPMC 模型的更好方法。
-* [kfifo](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/lib/kfifo.c) 用于镜像索引内存。
+* [kfifo](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/lib/kfifo.c) 提供了镜像指示位的思想。
 * 使用 `std::allocator` 作为内存分配的标准，例如放置新建。
 
 > [!NOTE]
-> I already found a helpful [blog](https://pskrgag.github.io/post/mpmc_vuykov/) to explain Vyukov's MPMCQueue, and here I provide my thought.
+> 我在网上找到个分析Vyukov‘s MPMCQueue的 [blog](https://pskrgag.github.io/post/mpmc_vuykov/)，在本篇README里，我将提供对其浅薄的理解。
 
 **Vyukov 的 MPMCQueue 的核心是每个单元的序列**，这里的单元是环形缓冲区的基本元素，包括序列和输入的 `DataT` 数据。
 
@@ -204,7 +202,7 @@ int main() {
 
 #### CMake 选项
 
-- `BUILD_TESTING`: 启用构建测试和基准测试（default：`ON`）
+- `BUILD_TESTING`: 启用构建测试和基准测试（default: `OFF`）
 - `CONFIG_FILE_PATH`: 日志记录配置文件的路径（default：`${ROOT_DIR}/config/aw_logger_settings.json`），就算不传参也OK，因为它在构建目录中自动生成
 
 仅在您想要运行测试或性能基准时需要：
@@ -239,7 +237,7 @@ ctest --output-on-failure
 在以下环境中进行的性能测试：
 
 - 平台：Linux，VMware Workstation 17pro（很捞）
-- 性能：4 核心 CPU，5.7GB 内存（更捞了）
+- 性能：4 核心 CPU（实际上最多跑了20%），<1GB的可用内存（更捞了）
 - 测试工具：使用[自定义工具](./test/utils.hpp)的GoogleTest
 
 #### 多线程性能（控制台输出）
@@ -251,6 +249,8 @@ ctest --output-on-failure
 |  日志大小  | 130-150 字节（不含 `file_name`） |
 |  平均时间  |       3628.4 毫秒（5 轮）        |
 | **吞吐量** |      **~110,000 条日志/秒**      |
+
+*注意：基准测试的log除了 `file_name`外，其余组件全部格式化*
 
 ## TODO
 
