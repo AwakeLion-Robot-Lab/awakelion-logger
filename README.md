@@ -2,13 +2,15 @@
 
 # Awakelion-Logger
 
-A low-latency, high-throughput and few-dependency logger for `AwakeLion Robot Lab` project. It's highly based on modern C++ standard library (C++20).
+A low-latency, high-throughput and few-dependencies logger for `AwakeLion Robot Lab` project. It's highly based on modern C++ standard library (C++20).
 
 ![img](./docs/log_format_type.png "log_format_types")
 
-[![build-and-test](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/ci.yml/badge.svg)](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/ci.yml)
+[![build-and-test](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/ci.yml/badge.svg)](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/ci.yml) [![cpp-linter](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/cpp-linter.yml/badge.svg)](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/cpp-linter.yml) [![docs](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/docs.yml/badge.svg)](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/docs.yml)
 
 English | [简体中文](./docs/README.zh_CN.md)
+
+[github-pages](https://awakelion-robot-lab.github.io/awakelion-logger/) for API docs
 
 </div>
 
@@ -57,7 +59,7 @@ flowchart LR
 * Awakelion-Logger is based on async-logger(MPSC) and sync-appender(SPSC) mode, which is inspired from [log4j2](https://logging.apache.org/log4j/2.12.x/).
 * Whole strcuture is based on [sylar-logger](https://github.com/sylar-yin/sylar/blob/master/sylar%2Flog.h), which means that use logger manager singleton class to manage multi-loggers in multi-threads. Besides, modern c++ function is inspired from [minilog](https://github.com/archibate/minilog) and [fmtlib](https://github.com/fmtlib).
 * the design of appenders are inspired by `sink` in [spdlog](https://github.com/gabime/spdlog/tree/v1.x/include/spdlog/sinks).
-* you can customize your favorite log event in [settings json](./config/aw_logger_settings.json), and it's changable without build each time.
+* you can customize your favorite log event in [settings json](./config/aw_logger_settings.json), and it's changable without build each time, also support hundreds of colors [inside](include/aw_logger/fmt_base.hpp).
 
 ### Core of asynchronous
 

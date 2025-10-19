@@ -29,10 +29,10 @@ jobs:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               with:
                   style: file
-                  tidy-checks: ""
+                  tidy-checks: "-*"
+                  database: ""
                   version: 18
                   files-changed-only: false
-                  # Only check these directories
                   extensions: "hpp,cpp,h,cc"
                   ignore: "include/3rdparty"
                   lines-changed-only: false

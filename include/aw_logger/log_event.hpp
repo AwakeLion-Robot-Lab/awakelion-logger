@@ -58,17 +58,16 @@ public:
          * you can refer to `log_macro.hpp`
          */
         template<typename U>
-            requires std::constructible_from<
-                         DataT,
-                         U> // `require` ensure that `DataT` can be constructible from `U`
+        requires std::constructible_from<
+            DataT,
+            U> // `require` ensure that `DataT` can be constructible from `U`
 
         // `std::constructible_from<DataT,U>` check whether `DataT` can be constructed from `U`
         constexpr LocalSourceLocation(
             U&& u_ref,
             const std::source_location loc = std::source_location::current()
         ):
-            data_(
-                std::forward<U>(u_ref)
+            data_(std::forward<U>(u_ref)
             ), // `std::forward<U>` can judge whether `U` is lvalue or rvalue
             loc_(std::move(loc))
         {}
@@ -130,7 +129,7 @@ public:
      * @brief get log level in type of `std::string`
      * @return log level in type of `std::string`
      */
-    inline constexpr std::string getLogLevelString() const noexcept
+    inline std::string getLogLevelString() const noexcept
     {
         return LogLevel::to_string(level_);
     }
@@ -157,7 +156,7 @@ public:
     /***
      * @brief get input message
      */
-    inline constexpr std::string getMsg() const noexcept
+    inline std::string getMsg() const noexcept
     {
         return wrapped_msg_.getData();
     }

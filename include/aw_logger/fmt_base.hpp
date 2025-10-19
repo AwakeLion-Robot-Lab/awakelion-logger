@@ -234,7 +234,7 @@ public:
      * @param l log level
      * @return `std::string` of log level
      */
-    static inline constexpr std::string to_string(LogLevel::level l) noexcept
+    static inline std::string to_string(LogLevel::level l) noexcept
     {
         switch (l)
         {

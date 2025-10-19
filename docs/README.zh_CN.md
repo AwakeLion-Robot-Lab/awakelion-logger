@@ -6,9 +6,11 @@
 
 ![img](./../docs/log_format_type.png "log_format_types")
 
-[![build-and-test](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/ci.yml/badge.svg)](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/ci.yml)
+[![build-and-test](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/ci.yml/badge.svg)](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/ci.yml) [![cpp-linter](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/cpp-linter.yml/badge.svg)](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/cpp-linter.yml) [![docs](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/docs.yml/badge.svg)](https://github.com/AwakeLion-Robot-Lab/awakelion-logger/actions/workflows/docs.yml)
 
 [English](./../README.md) | 简体中文
+
+[github-pages](https://awakelion-robot-lab.github.io/awakelion-logger/)上有相应的API文档
 
 </div>
 
@@ -57,7 +59,7 @@ flowchart LR
 * Awakelion-Logger 基于 async-logger(MPSC) 和 sync-appender(SPSC) 模式，灵感来源于 [log4j2](https://logging.apache.org/log4j/2.12.x/)。
 * 整个日志框架的设计基于 [sylar-logger](https://github.com/sylar-yin/sylar/blob/master/sylar%2Flog.h)，这意味着使用日志管理器单例类来管理多线程中的多个日志记录器。此外，部分C++函数的实现灵感来源于 [minilog](https://github.com/archibate/minilog) 和 [fmtlib](https://github.com/fmtlib)。
 * 附加器（也称作输出器）的设计灵感来自于 [spdlog](https://github.com/gabime/spdlog/tree/v1.x/include/spdlog/sinks) 中的 `sink`。
-* 你可以在 [settings json](./config/aw_logger_settings.json) 中自定义你喜欢的日志事件，并且可以在不重新构建的情况下进行更改。
+* 你可以在 [settings json](./config/aw_logger_settings.json) 中自定义你喜欢的日志事件，并且可以在不重新构建的情况下进行更改，同时[内置](./../include/aw_logger/fmt_base.hpp)上百种颜色。
 
 ### 实现异步的核心
 
@@ -81,10 +83,10 @@ flowchart LR
 
 #### 如何更新
 
-|                  |                  `push()`                  |                        `pop()`                        |
-| :--------------: | :------------------------------------------: | :-----------------------------------------------------: |
+|            |                  `push()`                  |                        `pop()`                        |
+| :--------: | :----------------------------------------: | :---------------------------------------------------: |
 |  **描述**  | 添加到 `curr_wIdx + 1`，移动到下一个单元。 | 添加到 `curr_rIdx + capacity`，移动到下一个镜像内存。 |
-| **表达式** |         `curr_seq = curr_wIdx + 1`         |          `curr_seq = curr_rIdx + mask_ + 1`          |
+| **表达式** |         `curr_seq = curr_wIdx + 1`         |          `curr_seq = curr_rIdx + mask_ + 1`           |
 
 #### 构造函数
 
@@ -101,17 +103,17 @@ buffer_ = allocator_trait::allocate(alloc_, r_capacity);
 
 #### 生产者视角
 
-|       状态       |                                              可用                                              |                   待处理                   |                                                        不可用                                                        |
-| :--------------: | :---------------------------------------------------------------------------------------------: | :----------------------------------------: | :------------------------------------------------------------------------------------------------------------------: |
+|    状态    |                                             可用                                              |                   待处理                   |                                                        不可用                                                        |
+| :--------: | :-------------------------------------------------------------------------------------------: | :----------------------------------------: | :------------------------------------------------------------------------------------------------------------------: |
 |  **描述**  | 默认使用其索引，<br />生产者可以写入。<br />更新后，它会向<br />消费者发出 `ready` 状态信号。 | 被另一个生产者占用，<br />等待写入并重试。 | 此单元已经环绕（无符号整数的属性），<br />但写入索引没有，这意味着所有单元都已写入，<br />这也意味着环形缓冲区已满。 |
-| **表达式** |                                        `== curr_wIdx`                                        |              `> curr_wIdx`              |                                                   `< curr_wIdx`                                                   |
+| **表达式** |                                        `== curr_wIdx`                                         |               `> curr_wIdx`                |                                                    `< curr_wIdx`                                                     |
 
 #### 消费者视角
 
-|       状态       |                                                       可用                                                       |                                       待处理                                       |                           不可用                           |
-| :--------------: | :---------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------: | :--------------------------------------------------------: |
+|    状态    |                                                     可用                                                      |                                      待处理                                       |                           不可用                           |
+| :--------: | :-----------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------: | :--------------------------------------------------------: |
 |  **描述**  | 等于在 `push()` 更新后的值， <br />这意味着是时候读取了，<br />这有点像 `std::condition_variable`的工作原理。 | 此单元已经被读取，<br />尝试重新加载 `curr_rIdx` 状态<br />以进行下一次读取操作。 | 所有单元中的数据都已被读取，<br />这意味着环形缓冲区为空。 |
-| **表达式** |                                               `== curr_rIdx + 1`                                               |                                 `> curr_rIdx + 1`                                 |                    `< curr_rIdx + 1`                    |
+| **表达式** |                                              `== curr_rIdx + 1`                                               |                                 `> curr_rIdx + 1`                                 |                     `< curr_rIdx + 1`                      |
 
 ## 依赖
 
@@ -242,13 +244,13 @@ ctest --output-on-failure
 
 #### 多线程性能（控制台输出）
 
-|       指标       |                 值                 |
-| :--------------: | :--------------------------------: |
-|      线程数      |                 8                 |
-|     总日志数     |              400,000              |
-|     日志大小     | 130-150 字节（不含 `file_name`） |
-|     平均时间     |        3628.4 毫秒（5 轮）        |
-| **吞吐量** |    **~110,000 条日志/秒**    |
+|    指标    |                值                |
+| :--------: | :------------------------------: |
+|   线程数   |                8                 |
+|  总日志数  |             400,000              |
+|  日志大小  | 130-150 字节（不含 `file_name`） |
+|  平均时间  |       3628.4 毫秒（5 轮）        |
+| **吞吐量** |      **~110,000 条日志/秒**      |
 
 *注意：基准测试的log除了 `file_name`外，其余组件全部格式化*
 
