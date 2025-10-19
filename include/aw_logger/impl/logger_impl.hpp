@@ -14,6 +14,9 @@
 #ifndef IMPL__LOGGER_IMPL_HPP
 #define IMPL__LOGGER_IMPL_HPP
 
+// C++ standard library
+#include <typeinfo>
+
 // aw_logger library
 #include "aw_logger/exception.hpp"
 #include "aw_logger/logger.hpp"
@@ -35,22 +38,24 @@ inline Logger::~Logger()
 
 void Logger::submit(const std::shared_ptr<LogEvent>& event)
 {
+    /* check status of event */
     if (event == nullptr || event->getLogLevel() < threshold_level_)
         return;
 
-    /* start logger */
-    start();
-
-    /* copy status of appenders */
+    /* get status of appenders list via thread-safe copy */
     bool has_appenders = false;
     {
         std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
         has_appenders = !appenders_.empty();
     }
 
-    /* check whether have own appenders */
+    /* check whether it have own appenders */
     if (has_appenders)
     {
+        /* if current logger has appenders, start it for once, after once, it will return via CAS operation */
+        start();
+
+        /* if get new event, notify worker thread via `std::condition_variable` */
         if (rb_.push(event))
         {
             std::unique_lock<std::mutex> cv_lk(cv_mtx_);
@@ -59,7 +64,7 @@ void Logger::submit(const std::shared_ptr<LogEvent>& event)
         return;
     }
 
-    /* if do not have own appenders, use root logger */
+    /* if it do not have own appenders, alter to root logger to append */
     Logger::Ptr curr_root_logger;
     {
         std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
@@ -82,18 +87,31 @@ inline void Logger::setRootLogger(const Logger::Ptr& root_logger)
         throw aw_logger::invalid_parameter("input root logger is nullptr!");
 
     std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
+    /* check existing and set root logger under write lock for thread-safe */
+    if (root_logger_ != nullptr)
+        throw aw_logger::invalid_parameter("root logger has been already set!");
+
     root_logger_ = root_logger;
 }
 
 inline void Logger::setAppender(const std::shared_ptr<BaseAppender>& appender)
 {
     if (appender == nullptr)
-    {
         throw aw_logger::invalid_parameter("input appender is nullptr!");
-        return;
-    }
 
     std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
+    /* check existing and set appender under write lock for thread-safe */
+    for (const auto& ex_app: appenders_)
+    {
+        if (ex_app == appender)
+        {
+            throw aw_logger::invalid_parameter(
+                std::string("an existing-type appender like: ") + typeid(*appender).name()
+                + "has already setup!"
+            );
+        }
+    }
+
     appenders_.emplace_back(appender);
 }
 
@@ -105,9 +123,15 @@ inline void Logger::removeAppender(const std::shared_ptr<BaseAppender>& appender
         if (*it == appender)
         {
             appenders_.erase(it);
-            break;
+            return;
         }
     }
+
+    /* if could not find, throw exception */
+    throw aw_logger::invalid_parameter(
+        std::string("appenders list did not set appender like: ") + typeid(*appender).name()
+        + " before!"
+    );
 }
 
 inline void Logger::clearAppenders()

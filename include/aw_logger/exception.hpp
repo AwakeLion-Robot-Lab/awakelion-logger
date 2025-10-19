@@ -28,6 +28,9 @@
  * @author jinhua "siyiovo" deng
  */
 namespace aw_logger {
+/***
+ * @brief base aw_logger exception class
+ */
 class aw_logger_exception: public std::exception {
 public:
     explicit aw_logger_exception(std::string_view msg): msg_(msg) {}
@@ -38,9 +41,15 @@ public:
     }
 
 protected:
+    /***
+     * @brief error message
+     */
     std::string msg_;
 };
 
+/***
+ * @brief invalid parameter exception
+ */
 class invalid_parameter: public aw_logger_exception {
 public:
     explicit invalid_parameter(std::string_view msg):
@@ -48,6 +57,9 @@ public:
     {}
 };
 
+/***
+ * @brief ringbuffer exception
+ */
 class ringbuffer_exception: public aw_logger_exception {
 public:
     explicit ringbuffer_exception(std::string_view msg):
@@ -55,6 +67,9 @@ public:
     {}
 };
 
+/***
+ * @brief bad json exception
+ */
 class bad_json: public aw_logger_exception {
 public:
     explicit bad_json(std::string_view msg):

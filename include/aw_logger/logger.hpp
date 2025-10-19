@@ -73,7 +73,7 @@ public:
     ~Logger();
 
     /***
-     * @brief initialize logger
+     * @brief initialize logger for ONLY ONCE
      */
     void init();
 
@@ -101,7 +101,7 @@ public:
     }
 
     /***
-     * @brief set root logger
+     * @brief set(bind) root logger
      * @param root_logger root logger
      */
     void setRootLogger(const Logger::Ptr& root_logger);
@@ -129,6 +129,10 @@ public:
      */
     void flush();
 
+    /***
+     * @brief get logger name
+     * @return current logger name
+     */
     std::string getName() const noexcept
     {
         std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
@@ -137,7 +141,7 @@ public:
 
 private:
     /***
-     * @brief root logger
+     * @brief binded root logger
      */
     Logger::Ptr root_logger_;
 

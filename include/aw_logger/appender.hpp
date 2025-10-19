@@ -120,7 +120,7 @@ protected:
 /***
  * @brief console appender class which output to console directly via `std::osyncstream`
  */
-class ConsoleAppender: public BaseAppender {
+class ConsoleAppender final: public BaseAppender {
 public:
     /***
      * @brief construtor
@@ -137,9 +137,13 @@ public:
     virtual void append(const LogEvent::Ptr& event) override;
 
     /***
-     * @brief flush is a no-op for console appender since osyncstream auto-flushes on destruction
+     * @brief flush output stream
      */
-    virtual void flush() override {}
+    virtual void flush() override
+    {
+        /* use `std::osyncstream` to ensure thread-safe */
+        std::osyncstream(output_stream_) << std::flush;
+    }
 
 private:
     /***
@@ -158,13 +162,13 @@ private:
 /***
  * @brief rolling file appender class which based on size-and-time policy
  */
-class FileAppender: public BaseAppender {
+class FileAppender final: public BaseAppender {
 private:
     size_t max_size_;
     size_t max_time_;
 };
 
-class WebsocketAppender: public BaseAppender {};
+class WebsocketAppender final: public BaseAppender {};
 } // namespace aw_logger
 
 #endif //! APPENDER_HPP

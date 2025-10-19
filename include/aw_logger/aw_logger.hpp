@@ -40,6 +40,8 @@
 namespace aw_logger {
 /***
  * @brief get logger
+ * @param name logger name
+ * @return current logger name
  */
 inline Logger::Ptr getLogger(const std::string& name = "root")
 {

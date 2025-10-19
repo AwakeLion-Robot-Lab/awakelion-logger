@@ -1,0 +1,44 @@
+name: cpp-linter
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+permissions:
+    contents: read
+
+jobs:
+    cpp-lint:
+        permissions:
+            contents: write
+            pull-requests: write
+        runs-on: ubuntu-24.04
+        steps:
+            - name: checkout
+              uses: actions/checkout@v5
+            - name: setup clang-format
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y clang-format-18
+            - name: run cpp-linter
+              uses: cpp-linter/cpp-linter-action@v2
+              id: linter
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              with:
+                  style: file
+                  tidy-checks: ""
+                  version: 18
+                  files-changed-only: false
+                  # Only check these directories
+                  extensions: "hpp,cpp,h,cc"
+                  ignore: "include/3rdparty"
+                  lines-changed-only: false
+            - name: report result
+              if: steps.linter.outputs.checks-failed > 0
+              run: |
+                  echo "::error::Some files failed clang-format checks"
+                  echo "Files with issues: ${{ steps.linter.outputs.checks-failed }}"
+                  exit 1
