@@ -14,14 +14,14 @@ jobs:
         permissions:
             contents: write
             pull-requests: write
-        runs-on: ubuntu-24.04
+        runs-on: ubuntu-22.04
         steps:
             - name: checkout
               uses: actions/checkout@v5
             - name: setup clang-format
               run: |
                   sudo apt-get update
-                  sudo apt-get install -y clang-format-18
+                  sudo apt-get install -y clang-format
             - name: run cpp-linter
               uses: cpp-linter/cpp-linter-action@v2
               id: linter

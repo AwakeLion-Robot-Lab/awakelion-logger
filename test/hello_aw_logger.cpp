@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 // C++ standard library
+#include <filesystem>
 #include <thread>
 #include <vector>
 
@@ -88,6 +89,115 @@ TEST(HelloAWLogger, HCall)
         AW_LOG_INFO(logger, "Hello aw_logger!");
         AW_LOG_FMT_INFO(logger, "Counter: {}", i);
     }
+
+    SUCCEED();
+}
+
+/***
+ * @brief Test multiple named loggers (non-root) with different outputs
+ */
+TEST(HelloAWLogger, MultiLoggerCall)
+{
+    // Create multiple loggers with different names
+    auto logger_network = aw_logger::getLogger("network");
+    auto logger_database = aw_logger::getLogger("database");
+    auto logger_business = aw_logger::getLogger("business");
+    auto logger_auth = aw_logger::getLogger("auth");
+
+    // verify they are created successfully
+    ASSERT_NE(logger_network, nullptr);
+    ASSERT_NE(logger_database, nullptr);
+    ASSERT_NE(logger_business, nullptr);
+    ASSERT_NE(logger_auth, nullptr);
+
+    const auto log_path = std::filesystem::current_path().parent_path() / "log" / "test.log";
+
+    // configure file appender
+    auto database_appender = std::make_shared<aw_logger::FileAppender>(log_path.string());
+    database_appender->setMaxFileSize(2 * 1024 * 1024); // 2 MB
+    database_appender->setMaxBackupNum(5);
+
+    // attribute logger to their own appender
+    logger_network->setAppender(std::make_shared<aw_logger::ConsoleAppender>());
+    logger_database->setAppender(database_appender);
+    logger_business->setAppender(std::make_shared<aw_logger::FileAppender>(log_path.string()));
+    logger_auth->setAppender(std::make_shared<aw_logger::ConsoleAppender>("stderr"));
+
+    // verify they are different instances
+    EXPECT_NE(logger_network, logger_database);
+    EXPECT_NE(logger_network, logger_business);
+    EXPECT_NE(logger_network, logger_auth);
+    EXPECT_NE(logger_database, logger_business);
+    EXPECT_NE(logger_database, logger_auth);
+    EXPECT_NE(logger_auth, logger_business);
+
+    // verify they are different from root logger
+    auto root_logger = aw_logger::getLogger();
+    EXPECT_NE(logger_network, root_logger);
+    EXPECT_NE(logger_database, root_logger);
+    EXPECT_NE(logger_business, root_logger);
+    EXPECT_NE(logger_auth, root_logger);
+
+    // test that getting the same name returns the same instance
+    auto logger_network_2 = aw_logger::getLogger("network");
+    EXPECT_EQ(logger_network, logger_network_2);
+
+    // each logger outputs different messages
+    EXPECT_NO_THROW(AW_LOG_INFO(logger_network, "[NETWORK] Server started on port 8080"));
+    EXPECT_NO_THROW(AW_LOG_WARN(logger_network, "[NETWORK] Connection timeout detected"));
+    EXPECT_NO_THROW(AW_LOG_FMT_ERROR(logger_network, "[NETWORK] Failed to bind to port {}", 8080));
+
+    EXPECT_NO_THROW(AW_LOG_INFO(logger_database, "[DATABASE] Connected to PostgreSQL"));
+    EXPECT_NO_THROW(AW_LOG_ERROR(logger_database, "[DATABASE] Query execution failed"));
+    EXPECT_NO_THROW(AW_LOG_FMT_WARN(logger_database, "[DATABASE] Slow query detected: {}ms", 1500));
+
+    EXPECT_NO_THROW(AW_LOG_DEBUG(logger_business, "[BUSINESS] Processing order #12345"));
+    EXPECT_NO_THROW(AW_LOG_INFO(logger_business, "[BUSINESS] Order completed successfully"));
+    EXPECT_NO_THROW(
+        AW_LOG_FMT_NOTICE(logger_business, "[BUSINESS] Revenue today: ${:.2f}", 45678.90)
+    );
+
+    EXPECT_NO_THROW(AW_LOG_NOTICE(logger_auth, "[AUTH] User login attempt"));
+    EXPECT_NO_THROW(AW_LOG_FATAL(logger_auth, "[AUTH] Authentication service down"));
+    EXPECT_NO_THROW(AW_LOG_FMT_INFO(logger_auth, "[AUTH] Active sessions: {}", 42));
+
+    // test concurrent logging from multiple named loggers
+    std::vector<std::thread> threads;
+
+    threads.emplace_back([logger_network]() {
+        for (int i = 0; i < 300; i++)
+        {
+            AW_LOG_FMT_DEBUG(logger_network, "[NETWORK-THREAD] Packet {} received", i);
+        }
+    });
+
+    threads.emplace_back([logger_database]() {
+        for (int i = 0; i < 300; i++)
+        {
+            AW_LOG_FMT_INFO(logger_database, "[DATABASE-THREAD] Transaction {} committed", i);
+        }
+    });
+
+    threads.emplace_back([logger_business]() {
+        for (int i = 0; i < 300; i++)
+        {
+            AW_LOG_FMT_WARN(logger_business, "[BUSINESS-THREAD] Invoice {} generated", i);
+        }
+    });
+
+    // wait for all threads to complete
+    for (auto& t: threads)
+    {
+        EXPECT_TRUE(t.joinable());
+        if (t.joinable())
+            t.join();
+    }
+
+    // verify flush operations work correctly
+    EXPECT_NO_THROW(logger_network->flush());
+    EXPECT_NO_THROW(logger_database->flush());
+    EXPECT_NO_THROW(logger_business->flush());
+    EXPECT_NO_THROW(logger_auth->flush());
 
     SUCCEED();
 }

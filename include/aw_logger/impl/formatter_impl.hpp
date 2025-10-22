@@ -98,7 +98,7 @@ std::string Formatter::formatComponents(
         throw aw_logger::invalid_parameter("log event pointer is nullptr!");
 
     std::string result;
-    result.reserve(500);
+    result.reserve(event->getMsg().size() + 256);
 
     /* pre-scan to find color settings */
     std::string color_code;

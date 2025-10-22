@@ -16,9 +16,12 @@
 #define APPENDER_HPP
 
 // C++ standard library
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <string_view>
 #include <syncstream>
 
@@ -110,9 +113,13 @@ protected:
         std::lock_guard<std::mutex> lk(fmt_mtx_);
         if (formatter_ != nullptr && event != nullptr)
             return formatter_->formatComponents(event, formatter_->getRegisteredComponents());
+        else if (formatter_ == nullptr)
+        {
+            throw aw_logger::invalid_parameter("formatter is nullptr!");
+        }
         else
         {
-            throw aw_logger::invalid_parameter("formatter or event is nullptr!");
+            throw aw_logger::invalid_parameter("event is nullptr!");
         }
     }
 };
@@ -126,9 +133,7 @@ public:
      * @brief construtor
      * @param stream_type stream type, "stdout" - `std::cout` | "stderr" - `std::cerr`
      */
-    explicit ConsoleAppender(std::string_view stream_type = "stdout"):
-        output_stream_(getStreamType(stream_type))
-    {}
+    explicit ConsoleAppender(std::string_view stream_type = "stdout");
 
     /***
      * @brief append to console
@@ -160,12 +165,131 @@ private:
 };
 
 /***
- * @brief rolling file appender class which based on size-and-time policy
+ * @brief rolling file appender class which based on size policy
  */
 class FileAppender final: public BaseAppender {
+public:
+    /***
+     * @brief constructor
+     * @param file_path path to log file
+     * @param is_trunc flag for truncate file for its old logs
+     * @param buffer_capacity buffer capacity of memory buffer
+     */
+    explicit FileAppender(
+        std::string_view file_path,
+        bool is_trunc = false,
+        size_t buffer_capacity = 8192
+    );
+
+    /***
+     * @brief destructor - ensures buffer is flushed
+     */
+    ~FileAppender();
+
+    /***
+     * @brief append to file with buffering
+     * @param event log event
+     */
+    virtual void append(const LogEvent::Ptr& event) override;
+
+    /***
+     * @brief flush buffer to file
+     */
+    virtual void flush() override;
+
+    /***
+     * @brief set max file size for rolling
+     * @param max_size max file size in bytes (0 means no limit)
+     */
+    void setMaxFileSize(size_t max_size) noexcept
+    {
+        max_file_size_ = max_size;
+    }
+
+    /***
+     * @brief set max backup file number
+     * @param max_num max number of backup files
+     */
+    void setMaxBackupNum(size_t max_num) noexcept
+    {
+        max_backup_num_ = max_num;
+    }
+
+    /***
+     * @brief get current file size
+     * @return current file size in bytes
+     */
+    inline size_t getFileSize() const noexcept
+    {
+        return file_size_;
+    }
+
+    /***
+     * @brief reopen file
+     * @param is_trunc truncate mode
+     */
+    void reopen(bool is_trunc = false);
+
 private:
-    size_t max_size_;
-    size_t max_time_;
+    /***
+     * @brief file stream for log output
+     */
+    std::ofstream file_stream_;
+
+    /***
+     * @brief log file path
+     */
+    std::filesystem::path file_path_;
+
+    /***
+     * @brief string buffer for log message
+     */
+    std::string buffer_;
+
+    /***
+     * @brief current file size
+     */
+    size_t file_size_;
+
+    /***
+     * @brief max file size for rotation
+     * @details 0 means no size limit
+     */
+    size_t max_file_size_;
+
+    /***
+     * @brief max number of backup files
+     * @details 0 means no size limit
+     */
+    size_t max_backup_num_;
+
+    /***
+     * @brief flag for truncate file for its old logs
+     */
+    bool is_trunc_;
+
+    /***
+     * @brief open file
+     * @param is_trunc truncate mode
+     */
+    void open(bool is_trunc);
+
+    /***
+     * @brief flush log messages to buffer
+     */
+    void flushToBuffer();
+
+    /***
+     * @brief rotate log file while the current size is greater than max file size
+     */
+    void rotateFile();
+
+    /***
+     * @brief create backup file path
+     * @param index backup index
+     * @return backup file path
+     */
+    std::filesystem::path createBackupPath(size_t index) const noexcept;
 };
 
 class WebsocketAppender final: public BaseAppender {};

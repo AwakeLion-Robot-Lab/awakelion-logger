@@ -148,8 +148,8 @@ inline void Logger::flush()
         std::this_thread::yield();
     }
 
-    /* flush all appenders */
-    std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
+    /* flush all appenders, just for current thread */
+    std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
     for (const auto& app: appenders_)
     {
         app->flush();
@@ -170,26 +170,30 @@ void Logger::start()
     if (!running_.compare_exchange_strong(expected, true))
         return;
 
-    /* weak pointer to avoid hanging pointer */
+    /* weak pointer to avoid circular reference */
     auto self = std::weak_ptr<Logger>(shared_from_this());
     /* worker thread */
     worker_ = std::thread([self]() {
         /* keep running */
         while (true)
         {
-            /* get logger instance */
+            /* get instance of current logger */
             auto logger = self.lock();
             if (logger == nullptr)
                 break;
 
-            /* wait for logger status and new log event */
+            /**
+             * wait for logger status(if not running, break the loop)
+             * or new log event(size > 0, pop out to appender)
+             */
             std::unique_lock<std::mutex> cv_lk(logger->cv_mtx_);
-            logger->cv_.wait(cv_lk, [&]() {
-                return !logger->running_.load() || logger->rb_.getSize() > 0;
+            logger->cv_.wait(cv_lk, [logger]() {
+                return !logger->running_.load(std::memory_order_relaxed)
+                    || logger->rb_.getSize() > 0;
             });
 
             /* check if logger is stopped and ringbuffer is empty */
-            if (!logger->running_.load() && logger->rb_.getSize() == 0)
+            if (!logger->running_.load(std::memory_order_relaxed) && logger->rb_.getSize() == 0)
                 break;
 
             /* pop out log event from ringbuffer */

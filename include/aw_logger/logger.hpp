@@ -152,6 +152,10 @@ private:
 
     /***
      * @brief worker thread to pop out log message from ringbuffer to appenders
+     * @details
+     * NOTE that it will create in `Logger::start()` 'cause worker_ is a member variable
+     * and join in `Logger::stop()`
+     * thread uses weak_ptr capture to avoid circular reference with Logger.
      */
     std::thread worker_;
 
@@ -187,7 +191,9 @@ private:
 
     /***
      * @brief read and write logger mutex
-     * @note write operation is `std::shared_lock`(share mode), otherwise is `std::unique_lock`(unique mode) of read operation
+     * @note
+     * multi-read operation is `std::shared_lock`(share mode) in concurrency,
+     * otherwise is `std::unique_lock`(unique mode) of unique write operation
      * @details
      * read operation of logger is attribute log messages to appenders list
      * write operation of logger includes add or remove appender and add log level threshold
@@ -230,7 +236,7 @@ public:
     /***
      * @brief constructor
      */
-    LoggerManager() {}
+    LoggerManager() = default;
 
     /***
      * @brief destructor

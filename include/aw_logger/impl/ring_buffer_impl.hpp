@@ -57,7 +57,7 @@ RingBuffer<DataT, Allocator>::~RingBuffer()
     {
         const size_t capacity = mask_ + 1;
         /* free cells */
-        for (size_t i = 0; i < capacity; ++i)
+        for (size_t i = 0; i < capacity; i++)
         {
             allocator_trait::destroy(alloc_, buffer_ + i);
         }

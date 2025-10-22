@@ -15,7 +15,7 @@
 #ifndef IMPL__LOG_EVENT_IMPL_HPP
 #define IMPL__LOG_EVENT_IMPL_HPP
 
-// linux library
+// Linux library
 #include <sys/stat.h>
 #include <sys/types.h>
 

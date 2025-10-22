@@ -22,36 +22,46 @@
 
 ```mermaid
 flowchart LR
-    subgraph "Frontend (User Threads)"
-        A[User Log Macro] -->|Create LogEvent| B[LogEventWrap]
-        B -->|RAII Destruction| C[Submit to Logger]
-    end
+  subgraph LoggerManager["LoggerManager"]
+    Root["Root Logger"]
+    LoggerA["Logger A"]
+    LoggerB["Logger B"]
+    LoggerC["Logger C"]
 
-    C --> D{Logger Level Filter}
-    D -->|Below Threshold| E[Discard]
-    D -->|Pass| F((Ring Buffer<br/>Async Storage))
+    LoggerA --> Root
+    LoggerB --> Root
+    LoggerC --> Root
+  end
 
-    subgraph "Backend (Worker Thread)"
-        G[Worker Loop] --> H{RingBuffer::pop}
-        H -->|Success| I[Get Appenders]
-        H -->|Empty| J[Wait for Signal]
-        J --> G
+  Root -->|"submit(event)"| Submit[Logger::submit]
 
-        I --> K{Appender Selection}
-        K --> L[Console Appender]
-        K --> M[File Appender]
-        K --> N[WebSocket Appender]
+  subgraph 前端线程
+    Macro[日志宏/调用方] --> Wrap[构造 LogEvent]
+    Wrap --> Submit
+  end
 
-        L --> O[Format]
-        M --> P[Format]
-        N --> Q[Format]
+  Submit --> Filter{level ≥ threshold?}
+  Filter -->|否| Drop[丢弃事件]
+  Filter -->|是| Enqueue[RingBuffer::push]
+  Enqueue --> Notify[唤醒worker线程]
 
-        O --> R[std::cout]
-        P --> S[Log File]
-        Q --> T[WebSocket Clients]
-    end
+  subgraph 后端线程["worker线程"]
+    Notify --> Worker[等待/循环]
+    Worker --> Pop[RingBuffer::pop]
+    Pop -->|成功| Format[Formatter::formatComponents]
+    Pop -->|为空| Wait[Wait for Signal]
+    Wait --> Worker
 
-    F --> H
+    Format --> AppSel{遍历 appender}
+    AppSel --> Console[ConsoleAppender]
+    AppSel --> File[FileAppender]
+    AppSel --> Web[WebSocketAppender]
+
+    Console --> Stdout[`std::cout`/`std::cerr`]
+    File --> LogFile[滚动文件]
+    Web --> Clients[WebSocket 客户端]
+  end
+
 ```
 
 ### 结构
@@ -59,7 +69,7 @@ flowchart LR
 * Awakelion-Logger 基于 async-logger(MPSC) 和 sync-appender(SPSC) 模式，灵感来源于 [log4j2](https://logging.apache.org/log4j/2.12.x/)。
 * 整个日志框架的设计基于 [sylar-logger](https://github.com/sylar-yin/sylar/blob/master/sylar%2Flog.h)，这意味着使用日志管理器单例类来管理多线程中的多个日志记录器。此外，部分C++函数的实现灵感来源于 [minilog](https://github.com/archibate/minilog) 和 [fmtlib](https://github.com/fmtlib)。
 * 附加器（也称作输出器）的设计灵感来自于 [spdlog](https://github.com/gabime/spdlog/tree/v1.x/include/spdlog/sinks) 中的 `sink`。
-* 你可以在 [settings json](./config/aw_logger_settings.json) 中自定义你喜欢的日志事件，并且可以在不重新构建的情况下进行更改，同时[内置](./../include/aw_logger/fmt_base.hpp)上百种颜色。
+* 你可以在 [settings json](./../config/aw_logger_settings.json) 中自定义你喜欢的日志事件，并且可以在不重新构建的情况下进行更改，同时[内置](./../include/aw_logger/fmt_base.hpp)上百种颜色。
 
 ### 实现异步的核心
 
@@ -145,7 +155,7 @@ buffer_ = allocator_trait::allocate(alloc_, r_capacity);
 git clone --recursive https://github.com/AwakeLion-Robot-Lab/awakelion-logger.git
 ```
 
-    或者你已经克隆本仓库了，但是没克隆子模块：
+或者你已经克隆本仓库了，但是没克隆子模块：
 
 ```bash
 git clone https://github.com/AwakeLion-Robot-Lab/awakelion-logger.git
@@ -155,14 +165,14 @@ git submodule update --init --recursive
 
 2. 在您的项目中包含并配置：
 
-   你可以使用CMake Subdirectory，在你工作空间的CMakeLists.txt 中添加为子目录：
+你可以使用CMake Subdirectory，在你工作空间的CMakeLists.txt 中添加为子目录：
 
 ```cmake
 add_subdirectory(path/to/awakelion-logger)
 target_link_libraries(your_target PRIVATE aw_logger)
 ```
 
-    或者使用CMake FetchContent：
+或者使用CMake FetchContent：
 
 ```cmake
 include(FetchContent)
@@ -175,9 +185,8 @@ FetchContent_MakeAvailable(aw_logger)
 target_link_libraries(your_target PRIVATE aw_logger)
 ```
 
-    使用 CMake，库会自动处理包含路径和依赖关系。
-
-    这样就搞定了，然后只需包含并使用：
+使用 CMake，库会自动处理包含路径和依赖关系。
+这样就搞定了，然后只需包含并使用：
 
 ```cpp
 #include "aw_logger/aw_logger.hpp"
@@ -249,8 +258,8 @@ ctest --output-on-failure
 |   线程数   |                8                 |
 |  总日志数  |             400,000              |
 |  日志大小  | 130-150 字节（不含 `file_name`） |
-|  平均时间  |       3628.4 毫秒（5 轮）        |
-| **吞吐量** |      **~110,000 条日志/秒**      |
+|  平均时间  |       3046.2 毫秒（5 轮）        |
+| **吞吐量** |      **~131,300 条日志/秒**      |
 
 *注意：基准测试的log除了 `file_name`外，其余组件全部格式化*
 

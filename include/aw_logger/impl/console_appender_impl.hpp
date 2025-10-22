@@ -25,6 +25,9 @@
  * @author jinhua "siyiovo" deng
  */
 namespace aw_logger {
+ConsoleAppender::ConsoleAppender(std::string_view stream_type):
+    output_stream_(getStreamType(stream_type))
+{}
 
 void ConsoleAppender::append(const LogEvent::Ptr& event)
 {

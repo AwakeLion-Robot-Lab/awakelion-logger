@@ -21,7 +21,7 @@ set(CONFIG_FILE_PATH
     CACHE PATH "Path to Awakelion Logger configuration file")
 
 if(NOT EXISTS ${CONFIG_FILE_PATH})
-  message(FATAL_ERROR "Configuration file not found: ${CONFIG_FILE_PATH}")
+  message(FATAL_ERROR "configuration file not found: ${CONFIG_FILE_PATH}")
 endif()
 
 configure_file(
@@ -65,7 +65,7 @@ if(BUILD_TESTING)
         CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
   else()
-    message(STATUS "Using system GTest (version ${GTest_VERSION})")
+    message(STATUS "using system gtest, version is: ${GTest_VERSION})")
   endif()
 
   file(GLOB TEST_SOURCES "test/*.cpp")

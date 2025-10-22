@@ -26,6 +26,7 @@
 #include "aw_logger/ring_buffer.hpp"
 
 #include "aw_logger/impl/console_appender_impl.hpp"
+#include "aw_logger/impl/file_appender_impl.hpp"
 #include "aw_logger/impl/formatter_impl.hpp"
 #include "aw_logger/impl/log_event_impl.hpp"
 #include "aw_logger/impl/logger_impl.hpp"
