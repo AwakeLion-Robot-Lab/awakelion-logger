@@ -148,8 +148,8 @@ inline void Logger::flush()
         std::this_thread::yield();
     }
 
-    /* flush all appenders, just for current thread */
-    std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
+    /* flush all appenders, it change nothing about appenders list */
+    std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
     for (const auto& app: appenders_)
     {
         app->flush();

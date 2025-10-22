@@ -45,7 +45,7 @@ public:
      */
     template<typename DataT>
     struct LocalSourceLocation {
-        // tips: struct default is `public`, here is an explicit call
+        /* tips: struct default is `public`, here is an explicit call */
     public:
         /***
          * @brief `LocalSourceLocation` constructor
