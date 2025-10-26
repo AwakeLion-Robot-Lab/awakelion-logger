@@ -199,7 +199,7 @@ public:
 
     /***
      * @brief set max file size for rolling
-     * @param max_size max file size in bytes (0 means no limit)
+     * @param max_size max file size in bytes
      */
     void setMaxFileSize(size_t max_size) noexcept
     {

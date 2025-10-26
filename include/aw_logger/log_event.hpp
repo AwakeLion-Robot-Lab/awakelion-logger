@@ -58,14 +58,13 @@ public:
          * you can refer to `log_macro.hpp`
          */
         template<typename U>
-            requires std::constructible_from<DataT, U>
+        requires std::constructible_from<DataT, U>
         // `std::constructible_from<DataT,U>` check whether `DataT` can be constructed from `U`
         constexpr LocalSourceLocation(
             U&& u_ref,
             const std::source_location loc = std::source_location::current()
         ):
-            data_(
-                std::forward<U>(u_ref)
+            data_(std::forward<U>(u_ref)
             ), // `std::forward<U>` can judge whether `U` is lvalue or rvalue
             loc_(std::move(loc))
         {}
