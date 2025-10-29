@@ -47,6 +47,28 @@ inline FileAppender::FileAppender(
     open(is_trunc_);
 }
 
+inline FileAppender::FileAppender(
+    const Formatter::Ptr& formatter,
+    std::string_view file_path,
+    bool is_trunc,
+    size_t buffer_capacity
+):
+    BaseAppender(formatter),
+    file_path_(file_path),
+    buffer_(),
+    file_size_(0),
+    max_file_size_(0),
+    max_backup_num_(5),
+    is_trunc_(is_trunc)
+{
+    buffer_.reserve(buffer_capacity);
+
+    if (std::filesystem::exists(file_path_) && !is_trunc_)
+        file_size_ = std::filesystem::file_size(file_path_);
+
+    open(is_trunc_);
+}
+
 inline FileAppender::~FileAppender()
 {
     flush();

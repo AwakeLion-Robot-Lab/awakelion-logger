@@ -68,7 +68,7 @@ flowchart LR
 * Awakelion-Logger is based on async-logger(MPSC) and sync-appender(SPSC) mode, which is inspired from [log4j2](https://logging.apache.org/log4j/2.12.x/).
 * Whole strcuture is based on [sylar-logger](https://github.com/sylar-yin/sylar/blob/master/sylar%2Flog.h), which means that use logger manager singleton class to manage multi-loggers in multi-threads. Besides, modern c++ function is inspired from [minilog](https://github.com/archibate/minilog) and [fmtlib](https://github.com/fmtlib).
 * The design of appenders are inspired by `sink` in [spdlog](https://github.com/gabime/spdlog/tree/v1.x/include/spdlog/sinks).
-* You can customize your favorite log event in [settings json](./config/aw_logger_settings.json), and it's changable without build each time, also support hundreds of colors [inside](include/aw_logger/fmt_base.hpp).
+* You can customize your favorite log event in [settings json](./config/aw_logger_settings.json) and it's changable without build each time, or just custom format in runtime(refer to [hello_aw_logger](./test/hello_aw_logger.cpp)). Also support hundreds of colors [inside](include/aw_logger/fmt_base.hpp).
 
 ### Core of asynchronous
 
@@ -92,10 +92,10 @@ In fact, sequence is an atomic counter, according to source code, **it indicates
 
 #### How it update
 
-|                      |                  `push()`                  |                          `pop()`                          |
-| :-------------------: | :------------------------------------------: | :----------------------------------------------------------: |
+|                 |                  `push()`                  |                          `pop()`                           |
+| :-------------: | :----------------------------------------: | :--------------------------------------------------------: |
 | **description** | add to `curr_wIdx + 1`, move to next cell. | add to `curr_rIdx + capacity`, move to next mirror memory. |
-| **expression** |         `curr_seq = curr_wIdx + 1`         |             `curr_seq = curr_rIdx + mask_ + 1`             |
+| **expression**  |         `curr_seq = curr_wIdx + 1`         |             `curr_seq = curr_rIdx + mask_ + 1`             |
 
 #### Constructor
 
@@ -112,17 +112,17 @@ buffer_ = allocator_trait::allocate(alloc_, r_capacity);
 
 #### Producer perspective
 
-|        status        |                                                     available                                                     |                             pending                             |                                                                             unavailable                                                                             |
-| :-------------------: | :----------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------: |
+|     status      |                                                    available                                                     |                             pending                              |                                                                             unavailable                                                                             |
+| :-------------: | :--------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------: |
 | **description** | default to its index,<br />producer can write.<br />after update, it signal<br />to consumer for `ready` status. | occupied by another producer,<br />wait for write and try again. | this cell already wrap-around(property of unsigned int),<br />but write index not, that means all cells are written,<br /> which also means the ringbuffer is full. |
-| **expression** |                                                  `== curr_wIdx`                                                  |                         `> curr_wIdx`                         |                                                                           `< curr_wIdx`                                                                           |
+| **expression**  |                                                  `== curr_wIdx`                                                  |                          `> curr_wIdx`                           |                                                                            `< curr_wIdx`                                                                            |
 
 #### Consumer perspective
 
-|        status        |                                                           available                                                           |                                                    pending                                                    |                                 unavailable                                 |
-| :-------------------: | :----------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------: |
+|     status      |                                                         available                                                          |                                                   pending                                                   |                                 unavailable                                 |
+| :-------------: | :------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------: |
 | **description** | equal to value after `push()` update,<br />it means it's time to read,<br />which is similar to `std::condition_variable`. | this cell has already<br />read, try to load <br />`curr_rIdx` status again<br />for a next read operation. | data in all cells have been read,<br />which means the ringbuffer is empty. |
-| **expression** |                                                      `== curr_rIdx + 1`                                                      |                                              `> curr_rIdx + 1`                                              |                             `< curr_rIdx + 1`                             |
+| **expression**  |                                                     `== curr_rIdx + 1`                                                     |                                              `> curr_rIdx + 1`                                              |                              `< curr_rIdx + 1`                              |
 
 ## Dependencies
 
@@ -130,9 +130,9 @@ buffer_ = allocator_trait::allocate(alloc_, r_capacity);
 
 a flexible and light-weighted JSON C++ library for log pattern customization. It's already inside `include/nlohmann` folder, and its version is `3.12.0`.
 
-### uWebSockets
+### IXWebSocket
 
-a light-weighted C++ websocket header-only library for monitoring log information so that you can watch debugs in real time remotely. I will release a web for awakelion-logger logging.
+a header-only and light-weighted C++ websockets library for appending logs to web, for debugging anytime.
 
 ## Installation
 
@@ -209,6 +209,44 @@ int main() {
 }
 ```
 
+#### Custom Pattern Format
+
+You can customize the log output format using pattern strings. Here are the available format specifiers:
+
+| Specifier | Description                                         |
+| :-------: | :-------------------------------------------------- |
+|   `%t`    | Timestamp                                           |
+|   `%p`    | Log level (DEBUG, INFO, WARN, etc.)                 |
+|   `%i`    | Thread ID                                           |
+|   `%f`    | Source location - file name                         |
+|   `%n`    | Source location - function name                     |
+|   `%l`    | Source location - line number                       |
+|   `%m`    | Log message                                         |
+|   text    | Any text not prefixed with `%` will be output as-is |
+
+and example is below:
+
+```cpp
+#include "aw_logger/aw_logger.hpp"
+
+int main() {
+    // Create custom pattern: [timestamp] <level> message
+    auto factory = std::make_shared<aw_logger::ComponentFactory>("[%t] <%p> %m");
+    auto formatter = std::make_shared<aw_logger::Formatter>(factory);
+    auto appender = std::make_shared<aw_logger::ConsoleAppender>(formatter);
+
+    auto logger = aw_logger::getLogger("custom");
+    logger->setAppender(appender);
+
+    AW_LOG_INFO(logger, "Custom format example");
+    // Output: [2025-10-29 22:35:38.456244408] <INFO> Custom format example
+
+    return 0;
+}
+```
+
+You can also configure patterns in JSON (refer to [aw_logger_settings.json](./config/aw_logger_settings.json)) or see more examples in [hello_aw_logger.cpp](./test/hello_aw_logger.cpp).
+
 ### Build Tests/Benchmarks (Optional)
 
 #### CMake Options
@@ -253,21 +291,21 @@ Performance tests conducted on the following environment:
 
 #### Multi-threaded Performance (Console Output)
 
-|        Metric        |                Value                |
-| :------------------: | :----------------------------------: |
-|       Threads       |                  8                  |
-|      Total Logs      |               400,000               |
-|       Log Size       | 130-150 bytes(without `file_name`) |
-|     Average Time     |         3046.2 ms (5 rounds)         |
-| **Throughput** |     **~131,300 logs/sec**     |
+|     Metric     |               Value                |
+| :------------: | :--------------------------------: |
+|    Threads     |                 8                  |
+|   Total Logs   |              400,000               |
+|    Log Size    | 130-150 bytes(without `file_name`) |
+|  Average Time  |        3046.2 ms (5 rounds)        |
+| **Throughput** |       **~131,300 logs/sec**        |
 
 *Note: log size is includes all the format except for the `file_name`*
 
 ## TODO
 
 - [X] support `ComponentFactory` class which is used to manage component registration. @done(25-10-11 23:19)
-- [X] support `LoggerManager` singleton class to manager loggers in multi-threads. @done(25-10-11 23:19)
-- [ ] support websocket for monitoring log information in real time, considering library as [uWebSockets](https://github.com/uNetworking/uWebSockets). @started(25-10-15 03:33) @high
+- [X] support `LoggerManager` singleton class to manager loggers in multi-threads. @started(25-10-11 23:19) @done(25-10-12 22:35)
+- [ ] support websocket for monitoring log information in real time, considering library as [IXWebSocket](https://github.com/machinezone/IXWebSocket.git). @started(25-10-15 03:33) @high
 - [X] process ringbuffer load test and appenders latency test. @started(25-10-11 23:19) @high @done(25-10-18 00:08) @lasted(6d49m31s)
-- [ ] support `%` as format specifier in `ComponentFactory` class. @low
+- [X] support `%` as format specifier in `ComponentFactory` class. @low @done(25-10-29 22:40)
 - [X] after load test, consider to support double ringbuffer to reduce lock time. @low @done(25-10-18 03:02) [siyiya]: no need for now.

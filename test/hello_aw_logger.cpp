@@ -202,4 +202,78 @@ TEST(HelloAWLogger, MultiLoggerCall)
     SUCCEED();
 }
 
+/***
+ * @brief Test custom pattern parsing with text components
+ * @details
+ * pattern type
+ * %t timestamp
+ * %p log level
+ * %i thread id
+ * %f source location - file name
+ * %n source location - function name
+ * %l source location - line
+ * %m log message
+ */
+TEST(HelloAWLogger, CustomPatternParsing)
+{
+    // Test pattern with text (normal characters)
+    auto factory1 = std::make_shared<aw_logger::ComponentFactory>("[%t] <%p> %m");
+    auto formatter1 = std::make_shared<aw_logger::Formatter>(factory1);
+    auto appender1 = std::make_shared<aw_logger::ConsoleAppender>(formatter1);
+    auto logger1 = aw_logger::getLogger("pattern_test_1");
+    logger1->setAppender(appender1);
+
+    EXPECT_NO_THROW(AW_LOG_INFO(logger1, "Testing pattern with brackets and angle brackets"));
+
+    // Test pattern with various separators
+    auto factory2 = std::make_shared<aw_logger::ComponentFactory>("%t | %p | %i | %f:%l | %m");
+    auto formatter2 = std::make_shared<aw_logger::Formatter>(factory2);
+    auto appender2 = std::make_shared<aw_logger::ConsoleAppender>(formatter2);
+    auto logger2 = aw_logger::getLogger("pattern_test_2");
+    logger2->setAppender(appender2);
+
+    EXPECT_NO_THROW(AW_LOG_WARN(logger2, "Testing pattern with pipe separators"));
+
+    // Test pattern with prefix text
+    auto factory3 =
+        std::make_shared<aw_logger::ComponentFactory>("LOG: %t [Level=%p] [TID=%i] Message: %m");
+    auto formatter3 = std::make_shared<aw_logger::Formatter>(factory3);
+    auto appender3 = std::make_shared<aw_logger::ConsoleAppender>(formatter3);
+    auto logger3 = aw_logger::getLogger("pattern_test_3");
+    logger3->setAppender(appender3);
+
+    EXPECT_NO_THROW(AW_LOG_ERROR(logger3, "Testing pattern with descriptive text"));
+
+    // Test pattern with source location
+    auto factory4 = std::make_shared<aw_logger::ComponentFactory>("%t [%p] (%f:%n:%l) -> %m");
+    auto formatter4 = std::make_shared<aw_logger::Formatter>(factory4);
+    auto appender4 = std::make_shared<aw_logger::ConsoleAppender>(formatter4);
+    auto logger4 = aw_logger::getLogger("pattern_test_4");
+    logger4->setAppender(appender4);
+
+    EXPECT_NO_THROW(AW_LOG_FMT_FATAL(logger4, "Testing with source location: value={}", 123));
+
+    // Test simple pattern without text
+    auto factory5 = std::make_shared<aw_logger::ComponentFactory>("%t%p%i%m");
+    auto formatter5 = std::make_shared<aw_logger::Formatter>(factory5);
+    auto appender5 = std::make_shared<aw_logger::ConsoleAppender>(formatter5);
+    auto logger5 = aw_logger::getLogger("pattern_test_5");
+    logger5->setAppender(appender5);
+
+    EXPECT_NO_THROW(AW_LOG_DEBUG(logger5, "Testing compact pattern"));
+
+    // Test pattern with complex text
+    auto factory6 = std::make_shared<aw_logger::ComponentFactory>(
+        "=== Time: %t === Level: %p === Thread: %i === Location: %f at line %l === Message: %m ==="
+    );
+    auto formatter6 = std::make_shared<aw_logger::Formatter>(factory6);
+    auto appender6 = std::make_shared<aw_logger::ConsoleAppender>(formatter6);
+    auto logger6 = aw_logger::getLogger("pattern_test_6");
+    logger6->setAppender(appender6);
+
+    EXPECT_NO_THROW(AW_LOG_NOTICE(logger6, "Testing verbose pattern with multiple text segments"));
+
+    SUCCEED();
+}
+
 #endif //! TEST__HELLO_AW_LOGGER_CPP

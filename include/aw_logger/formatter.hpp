@@ -1,4 +1,3 @@
-
 // Copyright 2025 siyiovo
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,12 +35,19 @@
  * @author jinhua "siyiovo" deng
  */
 namespace aw_logger {
-
 /***
  * @brief component factory to manager component registration via json file or runtime pattern
  */
 class ComponentFactory {
 public:
+    /***
+     * @brief pattern parsing state enum
+     * @details
+     * NORMAL_TEXT: normal text state, e.g. text insize `()` `[]` etc.
+     * PATTERN_CHAR: pattern character state, e.g. char after `%`, like `%t`, `%p`
+     */
+    enum class patternState : size_t { NORMAL_TEXT, PATTERN_CHAR };
+
     using Ptr = std::shared_ptr<ComponentFactory>;
     using ConstPtr = std::shared_ptr<const ComponentFactory>;
 
@@ -92,23 +98,6 @@ private:
                                                { "enabled", true } } } };
 
     /***
-     * @brief parsed pattern
-     */
-    std::string parsed_pattern_;
-
-    /***
-     * @brief default pattern
-     * @details
-     * %T timestamp
-     * %L log level
-     * %t thread id
-     * %l source location
-     * %a tab
-     * %s log message
-     */
-    const std::string default_pattern_ = "%T%L%t%l%a%s";
-
-    /***
      * @brief load components from setting
      * @param file_name file name
      */
@@ -124,10 +113,10 @@ private:
     void registerComponents(const nlohmann::json& json);
 
     /***
-     * @brief parse patterns
-     * @param pattern pattern
+     * @brief parse runtime pattern
+     * @param pattern pattern string
      */
-    void parsePatterns(std::string_view pattern);
+    void parsePattern(std::string_view pattern);
 };
 
 /***
@@ -140,7 +129,7 @@ public:
     using ConstPtr = std::shared_ptr<const Formatter>;
 
     /***
-     * @brief Formatter constructor
+     * @brief constructor
      * @param factory component factory
      */
     explicit Formatter(const ComponentFactory::Ptr& factory);

@@ -29,6 +29,11 @@ ConsoleAppender::ConsoleAppender(std::string_view stream_type):
     output_stream_(getStreamType(stream_type))
 {}
 
+ConsoleAppender::ConsoleAppender(const Formatter::Ptr& formatter, std::string_view stream_type):
+    BaseAppender(formatter),
+    output_stream_(getStreamType(stream_type))
+{}
+
 void ConsoleAppender::append(const LogEvent::Ptr& event)
 {
     const auto log_msg = formatMsg(event);

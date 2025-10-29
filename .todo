@@ -2,5 +2,5 @@
 ✔ support `LoggerManager` singleton class to manager loggers in multi-threads. @started(25-10-11 23:19) @done(25-10-12 22:35)
 ☐ support websocket for monitoring log information in real time, considering library as [uWebSockets](https://github.com/uNetworking/uWebSockets). @started(25-10-15 03:33) @high
 ✔ process ringbuffer load test and appenders latency test. @started(25-10-11 23:19) @high @done(25-10-18 00:08) @lasted(6d49m31s)
-☐ support `%` as format specifier in `ComponentFactory` class. @low
+✔ support `%` as format specifier in `ComponentFactory` class. @low @done(25-10-29 22:40)
 ✔ after load test, consider to support double ringbuffer to reduce lock time. @low @done(25-10-18 03:02) [siyiya]: no need for now.

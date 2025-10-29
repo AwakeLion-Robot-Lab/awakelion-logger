@@ -9,6 +9,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/module")
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
@@ -34,6 +36,13 @@ configure_file("${CMAKE_SOURCE_DIR}/cmake/aw_logger_version.h.in"
 add_library(nlohmann_json INTERFACE)
 target_include_directories(nlohmann_json INTERFACE include/3rdparty/nlohmann)
 
+find_package(IXWebSocket QUIET)
+if(IXWebSocket_FOUND)
+  message(STATUS "found IXWebSocket: ${IXWebSocket_LIBRARIES}.")
+else()
+  message(STATUS "can not find IXWebSocket.")
+endif()
+
 add_library(aw_logger INTERFACE)
 target_include_directories(
   aw_logger
@@ -42,6 +51,10 @@ target_include_directories(
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/3rdparty>
             $<INSTALL_INTERFACE:include>)
 target_link_libraries(aw_logger INTERFACE nlohmann_json)
+
+if(IXWebSocket_FOUND)
+  target_link_libraries(aw_logger INTERFACE IXWebSocket::IXWebSocket)
+endif()
 
 option(BUILD_TESTING "Build tests" OFF)
 

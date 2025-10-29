@@ -16,6 +16,7 @@
 #define IMPL__FORMATTER_IMPL_HPP
 
 // C++ standard library
+#include <cctype>
 #include <fstream>
 
 // aw_logger library
@@ -30,6 +31,11 @@ ComponentFactory::ComponentFactory()
     const std::string setting_path = CONFIG_FILE_PATH;
     loadSettingComponents(setting_path);
     registerComponents(setting_json_);
+}
+
+ComponentFactory::ComponentFactory(std::string_view pattern)
+{
+    parsePattern(pattern);
 }
 
 void ComponentFactory::loadSettingComponents(std::string_view file_name)
@@ -61,25 +67,135 @@ inline void ComponentFactory::registerComponents(const nlohmann::json& json)
                 registered_components_.push_back({ "color", component["level_colors"].dump(4) });
 
             /* timestamp */
-            if (type == "timestamp")
+            else if (type == "timestamp")
                 registered_components_.push_back({ "timestamp", "" });
 
             /* level */
-            if (type == "level")
+            else if (type == "level")
                 registered_components_.push_back({ "level", "" });
 
             /* thread id */
-            if (type == "tid")
+            else if (type == "tid")
                 registered_components_.push_back({ "tid", "" });
 
             /* source location */
-            if (type == "loc")
+            else if (type == "loc")
                 registered_components_.push_back({ "loc", component.value("format", "") });
 
             /* message */
-            if (type == "msg")
+            else if (type == "msg")
                 registered_components_.push_back({ "msg", "" });
         }
+    }
+}
+
+void ComponentFactory::parsePattern(std::string_view pattern)
+{
+    /* initialize state, left position and right position */
+    /* vector of {type, unformatted data} */
+    std::vector<std::pair<std::string, std::string>> pattern_components;
+    const size_t size = pattern.size();
+    patternState state = patternState::NORMAL_TEXT;
+    size_t lpos = 0, rpos = 0;
+
+    /* parse loop until EOL: '\0' */
+    while (rpos <= size)
+    {
+        /* current char to judge whether '%' or EOL */
+        auto curr_char = (rpos < size) ? pattern[rpos] : '\0';
+        switch (state)
+        {
+            /* emplace normal text directly */
+            case patternState::NORMAL_TEXT:
+                /* if current char is '%' or EOL, emplace text to break or ready for parse pattern char */
+                if (curr_char == '%' || curr_char == '\0')
+                {
+                    /**
+                     * emplace back text between lpos and rpos which means char before '%'
+                     * e.g.:
+                     * - in case of '%', "abc%t", it emplace back "abc"
+                     * - in case of EOL, "abcefgdasd\0", it emplace back "abcefgdasd"
+                     */
+                    if (lpos < rpos)
+                        pattern_components.emplace_back(
+                            "s",
+                            std::string(pattern.substr(lpos, rpos - lpos))
+                        );
+
+                    if (curr_char == '%')
+                    {
+                        /**
+                         * move `lpos` to next char of '%' for parsing pattern char
+                         * e.g. `lpos` move to 't' of '%t'
+                         */
+                        lpos = rpos + 1;
+                        /* switch state to parse pattern char */
+                        state = patternState::PATTERN_CHAR;
+                    }
+                }
+                break;
+
+            /* parse pattern char */
+            case patternState::PATTERN_CHAR:
+                /* if current char is not alphabet or it's an EOL, break and switch to normal text */
+                if (!std::isalpha(static_cast<unsigned char>(curr_char)))
+                {
+                    /* emplace pattern char if exists */
+                    if (lpos < rpos)
+                        pattern_components.emplace_back(
+                            std::string(pattern.substr(lpos, rpos - lpos)),
+                            ""
+                        );
+
+                    /* switch state to normal text parsing */
+                    state = patternState::NORMAL_TEXT;
+                    /* move `lpos` to current position for next normal text emplacing */
+                    lpos = rpos;
+                    continue;
+                }
+                break;
+        }
+        /* add `rpos` by 1 for next char in loop */
+        rpos++;
+    }
+
+    /* ready for components registration */
+    registered_components_.clear();
+    registered_components_.reserve(pattern_components.size());
+
+    for (const auto& [type, format]: pattern_components)
+    {
+        /* timestamp */
+        if (type == "t")
+            registered_components_.push_back({ "timestamp", "" });
+
+        /* level */
+        else if (type == "p")
+            registered_components_.push_back({ "level", "" });
+
+        /* thread id */
+        else if (type == "i")
+            registered_components_.push_back({ "tid", "" });
+
+        /* file name */
+        else if (type == "f")
+            registered_components_.push_back({ "loc", "{file_name}" });
+
+        /* function name */
+        else if (type == "n")
+            registered_components_.push_back({ "loc", "{function_name}" });
+
+        /* line */
+        else if (type == "l")
+            registered_components_.push_back({ "loc", "{line}" });
+
+        /* log message */
+        else if (type == "m")
+            registered_components_.push_back({ "msg", "" });
+
+        /* text in pattern, e.g. time:[%t] => time:[2025.xx.xx] */
+        else if (type == "s")
+            registered_components_.push_back({ "text", format });
     }
 }
 
@@ -151,11 +267,6 @@ std::string Formatter::formatComponents(
             {
                 result += formatSourceLocation(event, format);
             }
-            else if (type == "color")
-            {
-                /* skip color component, already handled in pre-scan */
-                continue;
-            }
             else if (type == "msg")
             {
                 if (is_has_color_code)
@@ -167,6 +278,10 @@ std::string Formatter::formatComponents(
                 {
                     result += aw_logger::Color::endColor;
                 }
+            }
+            else if (type == "text")
+            {
+                result += format;
             }
         }
     } catch (const std::exception& ex)

@@ -30,7 +30,7 @@
 #include "aw_logger/formatter.hpp"
 #include "aw_logger/log_event.hpp"
 
-//uWebSockets library
+// IXWebSocket library
 
 /***
  * @brief a low-latency, high-throughput and few-dependency logger for `AwakeLion Robot Lab` project
@@ -56,6 +56,12 @@ public:
         auto factory = std::make_shared<ComponentFactory>();
         formatter_ = std::make_shared<Formatter>(factory);
     }
+
+    /***
+     * @brief constructor with formatter
+     * @param formatter formatter
+     */
+    explicit BaseAppender(const Formatter::Ptr& formatter): formatter_(formatter) {}
 
     /***
      * @brief destructor
@@ -136,6 +142,16 @@ public:
     explicit ConsoleAppender(std::string_view stream_type = "stdout");
 
     /***
+     * @brief constructor with formatter
+     * @param formatter formatter
+     * @param stream_type stream type, "stdout" - `std::cout` | "stderr" - `std::cerr`
+     */
+    explicit ConsoleAppender(
+        const Formatter::Ptr& formatter,
+        std::string_view stream_type = "stdout"
+    );
+
+    /***
      * @brief append to console
      * @param event log event
      */
@@ -176,6 +192,20 @@ public:
      * @param buffer_capacity buffer capacity of memory buffer
      */
     explicit FileAppender(
+        std::string_view file_path,
+        bool is_trunc = false,
+        size_t buffer_capacity = 8192
+    );
+
+    /***
+     * @brief constructor with formatter
+     * @param formatter formatter
+     * @param file_path path to log file
+     * @param is_trunc flag for truncate file for its old logs
+     * @param buffer_capacity buffer capacity of memory buffer
+     */
+    explicit FileAppender(
+        const Formatter::Ptr& formatter,
         std::string_view file_path,
         bool is_trunc = false,
         size_t buffer_capacity = 8192
@@ -292,6 +322,9 @@ private:
     std::filesystem::path createBackupPath(size_t index) const noexcept;
 };
 
+/***
+ * @brief websocket appender class which output to websocket server via `IXWebSocket`
+ */
 class WebsocketAppender final: public BaseAppender {};
 } // namespace aw_logger
 

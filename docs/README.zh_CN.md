@@ -69,7 +69,7 @@ flowchart LR
 * Awakelion-Logger 基于 async-logger(MPSC) 和 sync-appender(SPSC) 模式，灵感来源于 [log4j2](https://logging.apache.org/log4j/2.12.x/)。
 * 整个日志框架的设计基于 [sylar-logger](https://github.com/sylar-yin/sylar/blob/master/sylar%2Flog.h)，这意味着使用日志管理器单例类来管理多线程中的多个日志记录器。此外，部分C++函数的实现灵感来源于 [minilog](https://github.com/archibate/minilog) 和 [fmtlib](https://github.com/fmtlib)。
 * 附加器（也称作输出器）的设计灵感来自于 [spdlog](https://github.com/gabime/spdlog/tree/v1.x/include/spdlog/sinks) 中的 `sink`。
-* 你可以在 [settings json](./../config/aw_logger_settings.json) 中自定义你喜欢的日志事件，并且可以在不重新构建的情况下进行更改，同时[内置](./../include/aw_logger/fmt_base.hpp)上百种颜色。
+* 你可以在 [settings json](./../config/aw_logger_settings.json) 中自定义你喜欢的日志事件，并且可以在不重新构建的情况下进行更改，还可以在代码里面自定义输出格式（请参考[hello_aw_logger](./../test/hello_aw_logger.cpp)）。同时[内置](./../include/aw_logger/fmt_base.hpp)上百种颜色。
 
 ### 实现异步的核心
 
@@ -131,9 +131,8 @@ buffer_ = allocator_trait::allocate(alloc_, r_capacity);
 
 一个灵活且轻量级的 JSON C++ 库，用于本日志系统的参数配置。它已经在 `include/nlohmann` 文件夹里面，版本是 `3.12.0`。
 
-### uWebSockets
-
-一个轻量级的 C++ websocket 头文件库，用于监控日志信息，以便您可以实时远程查看调试信息。我将为 awakelion-logger 日志发布一个网页。
+### IXWebSocket
+一个只有头文件且轻量的C++ websocket库，用于输出日志到web上，以便随时查看debug信息。
 
 ## 安装
 
@@ -209,6 +208,44 @@ int main() {
 }
 ```
 
+#### 自定义 Pattern 格式
+
+您可以使用 pattern 字符串自定义日志输出格式。以下是可用的格式说明符：
+
+|  格式符  | 描述                                  |
+| :------: | :------------------------------------ |
+|   `%t`   | 时间戳                                |
+|   `%p`   | 日志级别（DEBUG、INFO、WARN 等）      |
+|   `%i`   | 线程 ID                               |
+|   `%f`   | 源位置 - 文件名                       |
+|   `%n`   | 源位置 - 函数名                       |
+|   `%l`   | 源位置 - 行号                         |
+|   `%m`   | 日志消息                              |
+| 普通文本 | 任何不以 `%` 开头的文本都将按原样输出 |
+
+示例如下：
+
+```cpp
+#include "aw_logger/aw_logger.hpp"
+
+int main() {
+    // 创建自定义模式：[时间戳] <级别> 消息
+    auto factory = std::make_shared<aw_logger::ComponentFactory>("[%t] <%p> %m");
+    auto formatter = std::make_shared<aw_logger::Formatter>(factory);
+    auto appender = std::make_shared<aw_logger::ConsoleAppender>(formatter);
+
+    auto logger = aw_logger::getLogger("custom");
+    logger->setAppender(appender);
+
+    AW_LOG_INFO(logger, "自定义格式示例");
+    // 输出：[2025-10-29 22:35:38.456244408] <INFO> 自定义格式示例
+
+    return 0;
+}
+```
+
+您还可以在 JSON 中配置模式（参考 [aw_logger_settings.json](./../config/aw_logger_settings.json)），或在 [hello_aw_logger.cpp](./../test/hello_aw_logger.cpp) 中查看更多示例。
+
 ### 构建测试/基准测试（可选）
 
 #### CMake 选项
@@ -249,7 +286,7 @@ ctest --output-on-failure
 
 - 平台：Linux，VMware Workstation 17pro（很捞）
 - 性能：4 核心 CPU（实际上最多跑了20%），<1GB的可用内存（更捞了）
-- 测试工具：使用[自定义工具](./test/utils.hpp)的GoogleTest
+- 测试工具：使用[自定义工具](./../test/utils.hpp)的GoogleTest
 
 #### 多线程性能（控制台输出）
 
@@ -261,13 +298,13 @@ ctest --output-on-failure
 |  平均时间  |       3046.2 毫秒（5 轮）        |
 | **吞吐量** |      **~131,300 条日志/秒**      |
 
-*注意：基准测试的log除了 `file_name`外，其余组件全部格式化*
+*注意：基准测试的log除了`file_name`外，其余组件全部格式化*
 
 ## TODO
 
 - [X] 支持用于管理组件注册的 `ComponentFactory` 类。 @done(25-10-11 23:19)
 - [X] 支持 `LoggerManager` 单例类以在多线程中管理日志记录器。 @done(25-10-11 23:19)
-- [ ] 支持 WebSocket 实时监控日志信息，考虑使用 [uWebSockets](https://github.com/uNetworking/uWebSockets) 库。 @started(25-10-15 03:33) @high
+- [ ] 支持 WebSocket 实时监控日志信息，考虑使用 [IXWebSocket](https://github.com/machinezone/IXWebSocket.git)。 @started(25-10-15 03:33) @high @done(25-10-29 22:40)
 - [X] 处理环形缓冲区负载测试和附加器延迟测试。 @started(25-10-11 23:19) @high @done(25-10-18 00:08) @lasted(6d49m31s)
 - [ ] 在 `ComponentFactory` 类中支持 `%` 作为格式说明符。 @low
 - [X] 在负载测试后，考虑支持双环形缓冲区以减少锁的颗粒度。 @low @done(25-10-18 03:02) [siyiya]: 目前暂时不需要。
