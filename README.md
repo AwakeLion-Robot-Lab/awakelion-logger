@@ -128,63 +128,65 @@ buffer_ = allocator_trait::allocate(alloc_, r_capacity);
 
 ### nlohmann JSON
 
-a flexible and light-weighted JSON C++ library for log pattern customization. It's already inside `include/nlohmann` folder, and its version is `3.12.0`.
+A flexible and lightweight JSON C++ library for log pattern customization. Included in `include/3rdparty/nlohmann` (version 3.12.0).
 
 ### IXWebSocket
 
-a header-only and light-weighted C++ websockets library for appending logs to web, for debugging anytime.
+A lightweight C++ WebSocket library for real-time log streaming. **Automatically managed by xmake** - no manual installation needed!
 
 ## Installation
 
-> Awakelion-Logger is a header-only library and you can use it directly without building, just include the headers and configure the JSON file.
+> Awakelion-Logger is a **header-only library**. Simply include the headers and configure the JSON file - no compilation required!
 
 ### Requirements
 
-- C++20 compatible compiler (GCC 10+, Clang 10+, or MSVC 2019+)
-- CMake 3.20+ and GoogleTest (only needed for building tests/benchmarks)
-- Git for git clone repository and its submodules
+- **C++20 compatible compiler** (GCC 10+, Clang 10+, or MSVC 2019+)
+- **[xmake](https://xmake.io/) 2.9.8+** (recommended build system)
+- **GoogleTest** (only for tests - auto-downloaded by xmake)
 
-### Quick Setup
+### Quick Setup with xmake
 
-For most users who just want to use the library:
+**Why xmake?**
+- ✅ **Zero git submodules** - dependencies auto-downloaded
+- ✅ **One-line setup** - configure, build, test
+- ✅ **Auto package management** - handles IXWebSocket, GoogleTest
+- ✅ **Cross-platform** with unified behavior
 
-1. Clone the repository with submodules:
-
-```bash
-git clone --recursive https://github.com/AwakeLion-Robot-Lab/awakelion-logger.git
-```
-
-Or if you already cloned without `--recursive`:
+#### 1. Clone the repository
 
 ```bash
 git clone https://github.com/AwakeLion-Robot-Lab/awakelion-logger.git
 cd awakelion-logger
-git submodule update --init --recursive
 ```
 
-2. Include in your project and configure:
+#### 2. Build and test (optional)
 
-you can use CMake Subdirectory, which just add as a subdirectory in your CMakeLists.txt:
+```bash
+# download requirement
+xmake build
 
-```cmake
-add_subdirectory(path/to/awakelion-logger)
-target_link_libraries(your_target PRIVATE aw_logger)
+# build and run tests (optional)
+xmake f --test=y -m release
+xmake test
 ```
 
-Or with CMake FetchContent:
+#### For CMake Users
 
-```cmake
-include(FetchContent)
-FetchContent_Declare(
-  aw_logger
-  GIT_REPOSITORY https://github.com/AwakeLion-Robot-Lab/awakelion-logger.git
-  GIT_TAG main
-)
-FetchContent_MakeAvailable(aw_logger)
-target_link_libraries(your_target PRIVATE aw_logger)
+If you prefer CMake, xmake can generate `CMakeLists.txt` for you:
+
+```bash
+# generate CMakeLists.txt from xmake.lua
+xmake project -k cmakelists
+
+# make and test file
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+nproc
+make -j<nproc-num>
+ctest --output-on-failure
 ```
 
-with CMake, the library automatically handles include paths and dependencies.
+This approach ensures you always have an up-to-date CMakeLists.txt without manually maintaining two build systems!
 
 And you just make it! Now just include in your C++ files like below:
 
@@ -247,41 +249,7 @@ int main() {
 
 You can also configure patterns in JSON (refer to [aw_logger_settings.json](./config/aw_logger_settings.json)) or see more examples in [hello_aw_logger.cpp](./test/hello_aw_logger.cpp).
 
-### Build Tests/Benchmarks (Optional)
-
-#### CMake Options
-
-- `BUILD_TESTING`: Enable building tests and benchmarks (default: `OFF`)
-- `CONFIG_FILE_PATH`: Path to logger configuration file (default: `config/aw_logger_settings.json`), auto-generated in build directory
-
-Only needed if you want to run tests or performance benchmarks:
-
-1. Clone with submodules:
-
-```bash
-git clone --recursive https://github.com/AwakeLion-Robot-Lab/awakelion-logger.git
-cd awakelion-logger
-```
-
-2. Configure and build:
-
-```bash
-mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
-make -j4
-```
-
-3. Run tests:
-
-```bash
-ctest --output-on-failure
-# Or run specific benchmarks
-./load_benchmark
-```
-
 ### Benchmark Stats
-
-#### Performance Benchmarks
 
 Performance tests conducted on the following environment:
 
@@ -293,7 +261,7 @@ Performance tests conducted on the following environment:
 
 |     Metric     |               Value                |
 | :------------: | :--------------------------------: |
-|    Threads     |                 8                  |
+|    Threads     |                 4                  |
 |   Total Logs   |              400,000               |
 |    Log Size    | 130-150 bytes(without `file_name`) |
 |  Average Time  |        3046.2 ms (5 rounds)        |

@@ -129,67 +129,63 @@ buffer_ = allocator_trait::allocate(alloc_, r_capacity);
 
 ### nlohmann JSON
 
-一个灵活且轻量级的 JSON C++ 库，用于本日志系统的参数配置。它已经在 `include/nlohmann` 文件夹里面，版本是 `3.12.0`。
+一个灵活且轻量的 JSON C++ 库，用于日志格式自定义配置。已包含在 `include/3rdparty/nlohmann` 目录（版本 3.12.0）。
 
 ### IXWebSocket
-一个只有头文件且轻量的C++ websocket库，用于输出日志到web上，以便随时查看debug信息。
+
+一个轻量的 C++ WebSocket 库，用于实时日志流传输。**由 xmake 自动管理** - 无需手动安装！
 
 ## 安装
 
-> Awakelion-Logger是一个仅包含头文件的库，您无需编译即可直接使用，只需包含头文件并配置JSON文件即可。
-
 ### 安装需求
 
-- C++20 兼容的编译器（GCC 10+、Clang 10+ 或 MSVC 2019+）
-- CMake 3.20+ 和 GoogleTest（仅在构建测试/基准时需要）
-- Git 用于克隆仓库及其子模块
+- **C++20 兼容编译器**（GCC 10+、Clang 10+ 或 MSVC 2019+）
+- **[xmake](https://xmake.io/zh-cn/) 2.9.8+**（推荐的构建系统）
+- **GoogleTest**（仅用于测试 - xmake 自动下载）
 
-### 快速设置
+### 使用 xmake 快速设置 ✨
 
-对于大多数只想使用该库的用户：
+**为什么选择 xmake？**
+- ✅ **零 git 子模块** - 依赖自动下载
+- ✅ **一行命令** - 配置、构建、测试
+- ✅ **自动包管理** - 处理 IXWebSocket、GoogleTest
+- ✅ **跨平台** 统一行为
 
-1. 使用子模块克隆仓库：
-
-```bash
-git clone --recursive https://github.com/AwakeLion-Robot-Lab/awakelion-logger.git
-```
-
-或者你已经克隆本仓库了，但是没克隆子模块：
+#### 1. 克隆仓库
 
 ```bash
 git clone https://github.com/AwakeLion-Robot-Lab/awakelion-logger.git
 cd awakelion-logger
-git submodule update --init --recursive
 ```
 
-2. 在您的项目中包含并配置：
+#### 2. 构建和测试（可选）
 
-你可以使用CMake Subdirectory，在你工作空间的CMakeLists.txt 中添加为子目录：
+```bash
+# 下载依赖
+xmake build
 
-```cmake
-add_subdirectory(path/to/awakelion-logger)
-target_link_libraries(your_target PRIVATE aw_logger)
+# 启用测试配置并运行测试（可选）
+xmake f --test=y -m release
+xmake test
 ```
 
-或者使用CMake FetchContent：
+#### 给 CMake 用户
 
-```cmake
-include(FetchContent)
-FetchContent_Declare(
-  aw_logger
-  GIT_REPOSITORY https://github.com/AwakeLion-Robot-Lab/awakelion-logger.git
-  GIT_TAG main
-)
-FetchContent_MakeAvailable(aw_logger)
-target_link_libraries(your_target PRIVATE aw_logger)
+如果你更喜欢 CMake，xmake 可以为你生成 `CMakeLists.txt`：
+
+```bash
+# 从 xmake.lua 生成 CMakeLists.txt
+xmake project -k cmakelists
+
+# 编译以及测试
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+nproc
+make -j<nproc-num>
+ctest --output-on-failure
 ```
 
-使用 CMake，库会自动处理包含路径和依赖关系。
-这样就搞定了，然后只需包含并使用：
-
-```cpp
-#include "aw_logger/aw_logger.hpp"
-```
+这种方式确保你始终拥有最新的 CMakeLists.txt，而无需手动维护两套构建系统！
 
 ### 快速入门示例
 
@@ -246,41 +242,7 @@ int main() {
 
 您还可以在 JSON 中配置模式（参考 [aw_logger_settings.json](./../config/aw_logger_settings.json)），或在 [hello_aw_logger.cpp](./../test/hello_aw_logger.cpp) 中查看更多示例。
 
-### 构建测试/基准测试（可选）
-
-#### CMake 选项
-
-- `BUILD_TESTING`: 启用构建测试和基准测试（default: `OFF`）
-- `CONFIG_FILE_PATH`: 日志记录配置文件的路径（default：`${ROOT_DIR}/config/aw_logger_settings.json`），就算不传参也OK，因为它在构建目录中自动生成
-
-仅在您想要运行测试或性能基准时需要：
-
-1. 使用子模块克隆：
-
-```bash
-git clone --recursive https://github.com/AwakeLion-Robot-Lab/awakelion-logger.git
-cd awakelion-logger
-```
-
-2. 配置和构建：
-
-```bash
-mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
-make -j4
-```
-
-3. 运行测试：
-
-```bash
-ctest --output-on-failure
-# Or run specific benchmarks
-./load_benchmark
-```
-
 ### 基准测试数据
-
-#### 性能基准
 
 在以下环境中进行的性能测试：
 
@@ -292,7 +254,7 @@ ctest --output-on-failure
 
 |    指标    |                值                |
 | :--------: | :------------------------------: |
-|   线程数   |                8                 |
+|   线程数   |                4                 |
 |  总日志数  |             400,000              |
 |  日志大小  | 130-150 字节（不含 `file_name`） |
 |  平均时间  |       3046.2 毫秒（5 轮）        |

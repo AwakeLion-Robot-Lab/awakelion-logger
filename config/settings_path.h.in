@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef CONFIG_PATH_H
-#define CONFIG_PATH_H
+#ifndef SETTINGS_PATH_H
+#define SETTINGS_PATH_H
 
+// C++ standard library
 #include <string>
 
-const std::string CONFIG_FILE_PATH = "@CONFIG_FILE_PATH@";
+const std::string SETTINGS_FILE_PATH = "@SETTINGS_FILE_PATH@";
 
-#endif //! CONFIG_PATH_H
+#endif //! SETTINGS_PATH_H

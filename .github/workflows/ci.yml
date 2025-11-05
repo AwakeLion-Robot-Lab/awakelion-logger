@@ -35,9 +35,9 @@ jobs:
             - name: build
               working-directory: ${{ runner.temp }}/build
               run: |
-                  cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTING=ON
-                  make -j4
+                  xmake
             - name: test
               working-directory: ${{ runner.temp }}/build
               run: |
-                  make test
+                  xmake f --test=y -m release
+                  xmake test

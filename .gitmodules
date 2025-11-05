@@ -1,3 +1,0 @@
-[submodule "include/3rdparty/IXWebSocket"]
-	path = include/3rdparty/IXWebSocket
-	url = https://github.com/machinezone/IXWebSocket.git

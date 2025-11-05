@@ -20,15 +20,15 @@
 #include <fstream>
 
 // aw_logger library
-#include "aw_logger/config_path.h"
 #include "aw_logger/exception.hpp"
 #include "aw_logger/formatter.hpp"
+#include "aw_logger/settings_path.h"
 
 namespace aw_logger {
 
 ComponentFactory::ComponentFactory()
 {
-    const std::string setting_path = CONFIG_FILE_PATH;
+    const std::string setting_path = SETTINGS_FILE_PATH;
     loadSettingComponents(setting_path);
     registerComponents(setting_json_);
 }
