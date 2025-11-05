@@ -31,7 +31,7 @@ jobs:
                   style: file
                   tidy-checks: "-*"
                   database: ""
-                  version: 18
+                  version: 14
                   files-changed-only: false
                   extensions: "hpp,cpp,h,cc"
                   ignore: "include/3rdparty"

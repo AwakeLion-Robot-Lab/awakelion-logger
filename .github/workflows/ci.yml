@@ -31,7 +31,8 @@ jobs:
             - name: setup
               run: |
                   sudo apt update
-                  mkdir ${{ runner.temp }}/build
+                  bash <(curl -fsSL https://raw.githubusercontent.com/tboox/xmake/master/scripts/get.sh)
+
             - name: build
               working-directory: ${{ runner.temp }}/build
               run: |
