@@ -33,12 +33,8 @@ jobs:
                   sudo apt update
                   bash <(curl -fsSL https://raw.githubusercontent.com/tboox/xmake/master/scripts/get.sh)
 
-            - name: build
-              working-directory: ${{ runner.temp }}/build
+            - name: build and test
               run: |
                   xmake
-            - name: test
-              working-directory: ${{ runner.temp }}/build
-              run: |
                   xmake f --test=y -m release
                   xmake test

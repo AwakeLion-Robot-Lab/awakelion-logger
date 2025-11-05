@@ -33,7 +33,7 @@ jobs:
                   database: ""
                   version: 14
                   files-changed-only: false
-                  extensions: "hpp,cpp,h,cc"
+                  extensions: "hpp"
                   ignore: "include/3rdparty"
                   lines-changed-only: false
             - name: report result

@@ -110,6 +110,7 @@ TEST(HelloAWLogger, MultiLoggerCall)
     ASSERT_NE(logger_business, nullptr);
     ASSERT_NE(logger_auth, nullptr);
 
+    /* TODO(siyiya): fix log path */
     const auto log_path = std::filesystem::current_path().parent_path() / "log" / "test.log";
 
     // configure file appender
