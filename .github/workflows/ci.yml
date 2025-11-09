@@ -35,6 +35,6 @@ jobs:
 
             - name: build and test
               run: |
-                  xmake
-                  xmake f --test=y -m release
+                  xmake build -y
+                  xmake f --test=y -m release -y
                   xmake test

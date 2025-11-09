@@ -451,7 +451,7 @@ TEST(BenchmarkLogger, MultiThreadedLogging)
     int total_logs = NUM_THREADS * LOGS_PER_THREAD;
 
     std::cerr << "====================Elapsed time: " << "===================\n"
-              << elapsed << " seconds\n";
+              << elapsed << " nanoseconds\n";
     SUCCEED();
 }
 

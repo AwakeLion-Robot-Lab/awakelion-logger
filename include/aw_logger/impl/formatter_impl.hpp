@@ -193,16 +193,13 @@ void ComponentFactory::parsePattern(std::string_view pattern)
         else if (type == "m")
             registered_components_.push_back({ "msg", "" });
 
-        /* text in pattern, e.g. time:[%t] => time:[2025.xx.xx] */
+        /* text in pattern, e.g. timestamp:[%t] => timestamp:[1760000000] */
         else if (type == "s")
             registered_components_.push_back({ "text", format });
     }
 }
 
-inline Formatter::Formatter(const ComponentFactory::Ptr& factory)
-{
-    setFactory(factory);
-}
+inline Formatter::Formatter(ComponentFactory::Ptr factory): factory_(std::move(factory)) {}
 
 std::string Formatter::formatComponents(
     const LogEvent::Ptr& event,

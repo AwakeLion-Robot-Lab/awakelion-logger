@@ -24,6 +24,88 @@
  * inspired by [log4j2](https://logging.apache.org/log4j/2.12.x/) and [minilog](https://github.com/archibate/minilog)
  * @author jinhua "siyiovo" deng
  */
-namespace aw_logger {} // namespace aw_logger
+namespace aw_logger {
+WebsocketAppender::WebsocketAppender(
+    std::string_view url,
+    bool message_deflate_en,
+    int ping_interval,
+    int handshake_timeout
+):
+    url_(url),
+    message_deflate_en_(message_deflate_en),
+    ping_interval_(ping_interval),
+    handshake_timeout_(handshake_timeout)
+{
+    /* websocket client configuration */
+    ws_.setUrl(url_);
+    ix::WebSocketPerMessageDeflateOptions deflate_options(message_deflate_en_);
+    ws_.setPerMessageDeflateOptions(deflate_options);
+    ws_.setPingInterval(ping_interval_);
+    ws_.setHandshakeTimeout(handshake_timeout_);
+    ws_.enableAutomaticReconnection();
+    ws_.setOnMessageCallback(
+        std::bind(&WebsocketAppender::on_message, this, std::placeholders::_1)
+    );
+
+    connect();
+}
+
+aw_logger::WebsocketAppender::~WebsocketAppender()
+{
+    if (connected_.load())
+        return;
+
+    std::lock_guard<std::mutex> ws_lk(ws_mtx_);
+    ws_.stop();
+    connected_.store(false);
+}
+
+void aw_logger::WebsocketAppender::on_message(const ix::WebSocketMessagePtr& msg)
+{
+    auto msg_type = msg->type;
+    if (msg_type == ix::WebSocketMessageType::Open)
+    {
+        connected_.store(true);
+    }
+    else if (msg_type == ix::WebSocketMessageType::Close)
+    {
+        std::cout << "connection closed via: [code: " << msg->closeInfo.code << "] "
+                  << msg->closeInfo.reason << std::endl;
+        connected_.store(false);
+    }
+    else if (msg_type == ix::WebSocketMessageType::Error)
+    {
+        auto error_info = msg->errorInfo;
+        std::cerr << "connection error: " << error_info.reason << " retries: " << error_info.retries
+                  << " wait time(ms): " << error_info.wait_time
+                  << "HTTP status: " << error_info.http_status << std::endl;
+
+        connected_.store(false);
+    }
+    else if (msg_type == ix::WebSocketMessageType::Ping
+             || msg_type == ix::WebSocketMessageType::Pong)
+    {
+        std::cout << "received ping from: " << msg->openInfo.uri << std::endl;
+    }
+    else if (msg_type == ix::WebSocketMessageType::Message)
+    {
+        // TODO(siyiya): handle threshold level applied to websocket appender
+    }
+}
+
+void aw_logger::WebsocketAppender::connect()
+{
+    if (!connected_.load())
+        return;
+
+    std::lock_guard<std::mutex> ws_lk(ws_mtx_);
+    ws_.start();
+    if (ws_.getReadyState() == ix::ReadyState::Open)
+    {
+        std::cout << "connected to websocket server: " << url_ << std::endl;
+        connected_.store(true);
+    }
+}
+} // namespace aw_logger
 
 #endif //! IMPL__WEBSOCKET_APPENDER_IMPL_HPP

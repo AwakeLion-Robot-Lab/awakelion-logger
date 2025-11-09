@@ -16,6 +16,7 @@
 #define APPENDER_HPP
 
 // C++ standard library
+#include <atomic>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -31,6 +32,7 @@
 #include "aw_logger/log_event.hpp"
 
 // IXWebSocket library
+#include <ixwebsocket/IXWebSocket.h>
 
 /***
  * @brief a low-latency, high-throughput and few-dependency logger for `AwakeLion Robot Lab` project
@@ -53,15 +55,15 @@ public:
      */
     explicit BaseAppender()
     {
-        auto factory = std::make_shared<ComponentFactory>();
-        formatter_ = std::make_shared<Formatter>(factory);
+        auto factory = std::make_unique<ComponentFactory>();
+        formatter_ = std::make_unique<Formatter>(std::move(factory));
     }
 
     /***
      * @brief constructor with formatter
      * @param formatter formatter
      */
-    explicit BaseAppender(const Formatter::Ptr& formatter): formatter_(formatter) {}
+    explicit BaseAppender(Formatter::Ptr formatter): formatter_(std::move(formatter)) {}
 
     /***
      * @brief destructor
@@ -88,10 +90,10 @@ public:
      * @brief set formatter to appender
      * @param formatter formatter to be set
      */
-    void setFormatter(const Formatter::Ptr& formatter)
+    void setFormatter(Formatter::Ptr formatter)
     {
         std::lock_guard<std::mutex> lk(app_mtx_);
-        formatter_ = formatter;
+        formatter_ = std::move(formatter);
     }
 
 protected:
@@ -146,10 +148,7 @@ public:
      * @param formatter formatter
      * @param stream_type stream type, "stdout" - `std::cout` | "stderr" - `std::cerr`
      */
-    explicit ConsoleAppender(
-        const Formatter::Ptr& formatter,
-        std::string_view stream_type = "stdout"
-    );
+    explicit ConsoleAppender(Formatter::Ptr formatter, std::string_view stream_type = "stdout");
 
     /***
      * @brief append to console
@@ -205,7 +204,7 @@ public:
      * @param buffer_capacity buffer capacity of memory buffer
      */
     explicit FileAppender(
-        const Formatter::Ptr& formatter,
+        Formatter::Ptr formatter,
         std::string_view file_path,
         bool is_trunc = false,
         size_t buffer_capacity = 8192
@@ -324,8 +323,87 @@ private:
 
 /***
  * @brief websocket appender class which output to websocket server via `IXWebSocket`
+ * @details API reference: https://machinezone.github.io/IXWebSocket/usage/
  */
-class WebsocketAppender final: public BaseAppender {};
+class WebsocketAppender final: public BaseAppender {
+public:
+    /***
+     * @brief constructor
+     * @param url websocket server url
+     * @param message_deflate_en enable message deflate compression
+     * @param ping_interval ping interval in seconds
+     * @param connect_timeout connection timeout in seconds
+     */
+    explicit WebsocketAppender(
+        std::string_view url,
+        bool message_deflate_en = false,
+        int ping_interval = 30,
+        int connect_timeout = 5
+    );
+
+    /***
+     * @brief destructor
+     */
+    ~WebsocketAppender();
+
+    /***
+     * @brief append log event to websocket server
+     * @param event log event
+     */
+    virtual void append(const LogEvent::Ptr& event) override;
+
+    /***
+     * @brief flush buffer
+     */
+    virtual void flush() override;
+
+private:
+    /***
+     * @brief websocket client
+     */
+    ix::WebSocket ws_;
+
+    /***
+     * @brief flag for connection status
+     */
+    std::atomic<bool> connected_ { false };
+
+    /***
+     * @brief mutex for websocket client
+     */
+    mutable std::mutex ws_mtx_;
+
+    /***
+     * @brief url of websocket server
+     */
+    std::string url_;
+
+    /***
+     * @brief enable message deflate compression
+     */
+    bool message_deflate_en_;
+
+    /***
+     * @brief ping interval in seconds
+     */
+    int ping_interval_;
+
+    /***
+     * @brief handshake timeout in seconds
+     */
+    int handshake_timeout_;
+
+    /***
+     * @brief callback function for websocket message
+     * @param msg websocket message
+     */
+    void on_message(const ix::WebSocketMessagePtr& msg);
+
+    /***
+     * @brief connect to websocket server
+     */
+    void connect();
+};
 } // namespace aw_logger
 
 #endif //! APPENDER_HPP

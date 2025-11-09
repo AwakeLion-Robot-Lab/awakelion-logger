@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package aw_logger;
+
+message WebsocketTx {
+    message LogMsg {
+        uint64 timestamp = 1;
+        uint32 level = 2;
+        uint32 tid = 3;
+        string file_name = 4;
+        string function_name = 5;
+        uint32 line = 6;
+        string msg = 7;
+    }
+    repeated LogMsg log_msgs = 1;
+}
+
+message WebsocketRx
+{
+    uint32 threshold_level = 1;
+}

@@ -12,25 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef AW_LOGGER_HPP
-#define AW_LOGGER_HPP
+#ifndef SERVER__WEBSOCKET_SERVER_HPP
+#define SERVER__WEBSOCKET_SERVER_HPP
 
 // aw_logger library
-#include "aw_logger/appender.hpp"
-#include "aw_logger/exception.hpp"
-#include "aw_logger/fmt_base.hpp"
-#include "aw_logger/formatter.hpp"
-#include "aw_logger/log_event.hpp"
-#include "aw_logger/log_macro.hpp"
-#include "aw_logger/logger.hpp"
-#include "aw_logger/ring_buffer.hpp"
 
-#include "aw_logger/impl/console_appender_impl.hpp"
-#include "aw_logger/impl/file_appender_impl.hpp"
-#include "aw_logger/impl/formatter_impl.hpp"
-#include "aw_logger/impl/log_event_impl.hpp"
-#include "aw_logger/impl/logger_impl.hpp"
-#include "aw_logger/impl/ring_buffer_impl.hpp"
+// IXWebSocket library
+#include <ixwebsocket/IXWebSocketServer.h>
 
 /***
  * @brief a low-latency, high-throughput and few-dependency logger for `AwakeLion Robot Lab` project
@@ -40,15 +28,23 @@
  */
 namespace aw_logger {
 /***
- * @brief get logger
- * @param name logger name
- * @return current logger name
+ * @brief websocket server for remote logging powered by `IXWebSocket`
  */
-inline Logger::Ptr getLogger(const std::string& name = "root")
-{
-    return LoggerManager::getInstance().getLogger(name);
-}
+class WebSocketServer {
+public:
+    /***
+     * @brief constructor
+     * @param port listening port
+     * @param host listening host
+     */
+    WebSocketServer(int port = 9002, const std::string& host = "localhost");
 
+private:
+    /***
+     * @brief websocket server
+     */
+    ix::WebSocketServer ws_server_;
+};
 } // namespace aw_logger
 
-#endif //! AW_LOGGER_HPP
+#endif //! SERVER__WEBSOCKET_SERVER_HPP

@@ -48,8 +48,8 @@ public:
      */
     enum class patternState : size_t { NORMAL_TEXT, PATTERN_CHAR };
 
-    using Ptr = std::shared_ptr<ComponentFactory>;
-    using ConstPtr = std::shared_ptr<const ComponentFactory>;
+    using Ptr = std::unique_ptr<ComponentFactory>;
+    using ConstPtr = std::unique_ptr<const ComponentFactory>;
 
     /***
      * @brief default constructor
@@ -125,14 +125,14 @@ private:
  */
 class Formatter {
 public:
-    using Ptr = std::shared_ptr<Formatter>;
-    using ConstPtr = std::shared_ptr<const Formatter>;
+    using Ptr = std::unique_ptr<Formatter>;
+    using ConstPtr = std::unique_ptr<const Formatter>;
 
     /***
      * @brief constructor
      * @param factory component factory
      */
-    explicit Formatter(const ComponentFactory::Ptr& factory);
+    explicit Formatter(ComponentFactory::Ptr factory);
 
     /***
      * @brief format message while compiling
@@ -166,9 +166,9 @@ public:
      * @brief set component factory
      * @param factory component factory
      */
-    void setFactory(const ComponentFactory::Ptr& factory)
+    void setFactory(ComponentFactory::Ptr factory)
     {
-        factory_ = factory;
+        factory_ = std::move(factory);
     }
 
     /***

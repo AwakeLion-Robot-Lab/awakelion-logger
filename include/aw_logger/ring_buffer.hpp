@@ -31,7 +31,7 @@
  */
 namespace aw_logger {
 /***
- * @brief a lock-free MPMC ring buffer without `std::mutex` and mirror MSB but with CAS opertaion, support `std::allocator` to manage memory
+ * @brief a lock-free MPMC ring buffer without `std::mutex` and mirror MSB but with CAS operation, support `std::allocator` to manage memory
  * @tparam DataT data type
  * @tparam Allocator allocator type
  * @details inspired by [Vyukov​'​s MPMCQueue](https://www.1024cores.net/home/lock-free-algorithms/queues/bounded-mpmc-queue) and Linux kfifo

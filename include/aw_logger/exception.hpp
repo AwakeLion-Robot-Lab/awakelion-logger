@@ -50,7 +50,7 @@ protected:
 /***
  * @brief invalid parameter exception
  */
-class invalid_parameter: public aw_logger_exception {
+class invalid_parameter final: public aw_logger_exception {
 public:
     explicit invalid_parameter(std::string_view msg):
         aw_logger_exception("[aw_logger]: invalid parameter: " + std::string(msg))
@@ -60,7 +60,7 @@ public:
 /***
  * @brief ringbuffer exception
  */
-class ringbuffer_exception: public aw_logger_exception {
+class ringbuffer_exception final: public aw_logger_exception {
 public:
     explicit ringbuffer_exception(std::string_view msg):
         aw_logger_exception("[aw_logger]: invalid parameter: " + std::string(msg))
@@ -70,7 +70,7 @@ public:
 /***
  * @brief bad json exception
  */
-class bad_json: public aw_logger_exception {
+class bad_json final: public aw_logger_exception {
 public:
     explicit bad_json(std::string_view msg):
         aw_logger_exception("[aw_logger]: invalid parameter: " + std::string(msg))

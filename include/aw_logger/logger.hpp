@@ -244,13 +244,13 @@ public:
     ~LoggerManager();
 
     /***
-     * @brief get static `std::shared_ptr` instance
-     * @return static `std::shared_ptr` instance
+     * @brief get static instance of logger manager
+     * @return static instance
      */
-    static std::shared_ptr<LoggerManager> getInstance()
+    static LoggerManager& getInstance()
     {
-        static std::shared_ptr<LoggerManager> instance = std::make_shared<LoggerManager>();
-        instance->init();
+        static LoggerManager instance = LoggerManager();
+        instance.init();
         return instance;
     }
 

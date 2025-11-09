@@ -133,7 +133,11 @@ buffer_ = allocator_trait::allocate(alloc_, r_capacity);
 
 ### IXWebSocket
 
-一个轻量的 C++ WebSocket 库，用于实时日志流传输。**由 xmake 自动管理** - 无需手动安装！
+一个轻量的 C++ WebSocket 库，用于实时日志流传输。
+
+### Protobuf
+
+由Google开发的的⼀种语⾔⽆关、平台⽆关、可扩展的序列化结构数据的⽅法，它可⽤于（数据）通信协议、数据存储等。
 
 ## 安装
 
@@ -143,9 +147,9 @@ buffer_ = allocator_trait::allocate(alloc_, r_capacity);
 - **[xmake](https://xmake.io/zh-cn/) 2.9.8+**（推荐的构建系统）
 - **GoogleTest**（仅用于测试 - xmake 自动下载）
 
-### 使用 xmake 快速设置 ✨
+### 使用xmake快速设置
 
-**为什么选择 xmake？**
+**为什么选择xmake**
 - ✅ **零 git 子模块** - 依赖自动下载
 - ✅ **一行命令** - 配置、构建、测试
 - ✅ **自动包管理** - 处理 IXWebSocket、GoogleTest
@@ -162,14 +166,14 @@ cd awakelion-logger
 
 ```bash
 # 下载依赖
-xmake build
+xmake build -y
 
 # 启用测试配置并运行测试（可选）
-xmake f --test=y -m release
+xmake f --test=y -m release -y
 xmake test
 ```
 
-#### 给 CMake 用户
+#### CMake方案
 
 如果你更喜欢 CMake，xmake 可以为你生成 `CMakeLists.txt`：
 

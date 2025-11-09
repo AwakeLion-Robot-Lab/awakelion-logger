@@ -48,12 +48,12 @@ inline FileAppender::FileAppender(
 }
 
 inline FileAppender::FileAppender(
-    const Formatter::Ptr& formatter,
+    Formatter::Ptr formatter,
     std::string_view file_path,
     bool is_trunc,
     size_t buffer_capacity
 ):
-    BaseAppender(formatter),
+    BaseAppender(std::move(formatter)),
     file_path_(file_path),
     buffer_(),
     file_size_(0),

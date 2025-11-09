@@ -132,7 +132,11 @@ A flexible and lightweight JSON C++ library for log pattern customization. Inclu
 
 ### IXWebSocket
 
-A lightweight C++ WebSocket library for real-time log streaming. **Automatically managed by xmake** - no manual installation needed!
+A lightweight C++ WebSocket library for real-time log streaming.
+
+### Protobuf
+
+a lightning-fast serialized message type created by Google.
 
 ## Installation
 
@@ -163,10 +167,10 @@ cd awakelion-logger
 
 ```bash
 # download requirement
-xmake build
+xmake build -y
 
 # build and run tests (optional)
-xmake f --test=y -m release
+xmake f --test=y -m release -y
 xmake test
 ```
 
