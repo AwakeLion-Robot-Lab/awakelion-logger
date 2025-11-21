@@ -36,7 +36,7 @@
     ],
     "websocket": [
         {
-            "url": "ws://localhost:1234",
+            "url": "ws://127.0.0.1:1234",
             "message_deflate_en": false,
             "ping_interval": 30,
             "handshake_timeout": 5

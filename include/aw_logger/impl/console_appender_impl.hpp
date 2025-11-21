@@ -36,6 +36,11 @@ ConsoleAppender::ConsoleAppender(Formatter::Ptr formatter, std::string_view stre
 
 void ConsoleAppender::append(const LogEvent::Ptr& event)
 {
+    /* check status of log level */
+    auto const curr_level = getThresholdLevel();
+    if (event->getLogLevel() < curr_level)
+        return;
+
     auto log_msg = formatMsg(event);
     /* create temporary osyncstream - automatically emits on destruction for thread-safe output */
     std::osyncstream(output_stream_) << log_msg << std::endl;

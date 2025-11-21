@@ -31,6 +31,7 @@
 #include "aw_logger/impl/log_event_impl.hpp"
 #include "aw_logger/impl/logger_impl.hpp"
 #include "aw_logger/impl/ring_buffer_impl.hpp"
+#include "aw_logger/impl/websocket_appender_impl.hpp"
 
 /***
  * @brief a low-latency, high-throughput and few-dependency logger for `AwakeLion Robot Lab` project

@@ -107,6 +107,11 @@ inline void FileAppender::open(bool is_trunc)
 
 void FileAppender::append(const LogEvent::Ptr& event)
 {
+    /* check status of log level */
+    auto const curr_level = getThresholdLevel();
+    if (event->getLogLevel() < curr_level)
+        return;
+
     auto log_msg = formatMsg(event);
     /* make sure that it has EOF */
     if (log_msg.empty() || log_msg.back() != '\n')

@@ -135,10 +135,6 @@ buffer_ = allocator_trait::allocate(alloc_, r_capacity);
 
 一个轻量的 C++ WebSocket 库，用于实时日志流传输。
 
-### Protobuf
-
-由Google开发的的⼀种语⾔⽆关、平台⽆关、可扩展的序列化结构数据的⽅法，它可⽤于（数据）通信协议、数据存储等。
-
 ## 安装
 
 ### 安装需求
@@ -193,13 +189,13 @@ ctest --output-on-failure
 
 ### 快速入门示例
 
-您可以构建测试文件并运行 `./hello_aw_logger` 以快速检查，或者您可以像下面这样编写您的第一个 aw_logger 文件：
+你可以从以下代码从零开始使用：
 
 ```cpp
 #include "aw_logger/aw_logger.hpp"
 
 int main() {
-    auto logger = aw_logger::getLogger();
+    auto logger = aw_logger::getLogger("hello_aw_logger");
 
     AW_LOG_INFO(logger, "Hello aw_logger!");
     AW_LOG_FMT_INFO(logger, "Value: {}", 42);
@@ -264,13 +260,15 @@ int main() {
 |  平均时间  |       3046.2 毫秒（5 轮）        |
 | **吞吐量** |      **~131,300 条日志/秒**      |
 
-*注意：基准测试的log除了`file_name`外，其余组件全部格式化*
+*注意：基准测试的log除了 `file_name` 外，其余组件全部格式化*
 
 ## TODO
 
 - [X] 支持用于管理组件注册的 `ComponentFactory` 类。 @done(25-10-11 23:19)
 - [X] 支持 `LoggerManager` 单例类以在多线程中管理日志记录器。 @done(25-10-11 23:19)
-- [ ] 支持 WebSocket 实时监控日志信息，考虑使用 [IXWebSocket](https://github.com/machinezone/IXWebSocket.git)。 @started(25-10-15 03:33) @high @done(25-10-29 22:40)
+- [X] 支持 WebSocket 实时监控日志信息，考虑使用 [IXWebSocket](https://github.com/machinezone/IXWebSocket.git)。 @started(25-10-15 03:33) @high @done(25-10-29 22:40)
 - [X] 处理环形缓冲区负载测试和附加器延迟测试。 @started(25-10-11 23:19) @high @done(25-10-18 00:08) @lasted(6d49m31s)
-- [ ] 在 `ComponentFactory` 类中支持 `%` 作为格式说明符。 @low
+- [X] 在 `ComponentFactory` 类中支持 `%` 作为格式说明符。 @low
 - [X] 在负载测试后，考虑支持双环形缓冲区以减少锁的颗粒度。 @low @done(25-10-18 03:02) [siyiya]: 目前暂时不需要。
+- [ ] 支持 C++ 服务器的格式化器，包括上传 ANSI 颜色和格式解析，就像 `Formatter` 类一样。 @low
+- [ ] 支持基于 `Flask` 的 Python 服务器。 @low

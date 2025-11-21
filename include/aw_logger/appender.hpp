@@ -26,13 +26,13 @@
 #include <string_view>
 #include <syncstream>
 
+// IXWebSocket library
+#include <ixwebsocket/IXWebSocket.h>
+
 // aw_logger library
 #include "aw_logger/exception.hpp"
 #include "aw_logger/formatter.hpp"
 #include "aw_logger/log_event.hpp"
-
-// IXWebSocket library
-#include <ixwebsocket/IXWebSocket.h>
 
 /***
  * @brief a low-latency, high-throughput and few-dependency logger for `AwakeLion Robot Lab` project
@@ -53,7 +53,7 @@ public:
     /***
      * @brief constructor
      */
-    explicit BaseAppender()
+    explicit BaseAppender(): threshold_level_(LogLevel::level::DEBUG)
     {
         auto factory = std::make_unique<ComponentFactory>();
         formatter_ = std::make_unique<Formatter>(std::move(factory));
@@ -62,18 +62,25 @@ public:
     /***
      * @brief constructor with formatter
      * @param formatter formatter
+     * @param lvl log level threshold for appender
      */
-    explicit BaseAppender(Formatter::Ptr formatter): formatter_(std::move(formatter)) {}
-
-    /***
-     * @brief destructor
-     */
-    ~BaseAppender() = default;
+    explicit BaseAppender(
+        Formatter::Ptr formatter,
+        const LogLevel::level lvl = LogLevel::level::DEBUG
+    ):
+        formatter_(std::move(formatter)),
+        threshold_level_(lvl)
+    {}
 
     BaseAppender(const BaseAppender&) = delete;
     BaseAppender(BaseAppender&&) = delete;
     BaseAppender& operator=(const BaseAppender&) = delete;
     BaseAppender& operator=(BaseAppender&&) = delete;
+
+    /***
+     * @brief destructor
+     */
+    ~BaseAppender() = default;
 
     /***
      * @brief virtual append function
@@ -96,11 +103,34 @@ public:
         formatter_ = std::move(formatter);
     }
 
+    /***
+     * @brief set log level threshold for appender
+     * @param level log level threshold for appender
+     */
+    void setThresholdLevel(LogLevel::level level)
+    {
+        threshold_level_.store(level, std::memory_order_release);
+    }
+
+    /***
+     * @brief get log level threshold available for appender
+     * @return log level threshold available for appender
+     */
+    LogLevel::level getThresholdLevel() const noexcept
+    {
+        return threshold_level_.load(std::memory_order_acquire);
+    }
+
 protected:
     /***
      * @brief formatter
      */
     Formatter::Ptr formatter_;
+
+    /***
+     * @brief log level threshold
+     */
+    std::atomic<LogLevel::level> threshold_level_;
 
     /***
      * @brief appender mutex
@@ -211,7 +241,7 @@ public:
     );
 
     /***
-     * @brief destructor - ensures buffer is flushed
+     * @brief destructor
      */
     ~FileAppender();
 
@@ -328,17 +358,23 @@ private:
 class WebsocketAppender final: public BaseAppender {
 public:
     /***
-     * @brief constructor
+     * @brief constructor with config file
+     */
+    explicit WebsocketAppender();
+
+    /***
+     * @brief constructor with customized websocket parameters
      * @param url websocket server url
      * @param message_deflate_en enable message deflate compression
-     * @param ping_interval ping interval in seconds
-     * @param connect_timeout connection timeout in seconds
+     * @param ping_interval ping interval
+     * @param handshake_timeout connection timeout
+     * @details `ping_interval` and `handshake_timeout` are both in seconds
      */
     explicit WebsocketAppender(
-        std::string_view url,
-        bool message_deflate_en = false,
-        int ping_interval = 30,
-        int connect_timeout = 5
+        const std::string_view url,
+        const bool message_deflate_en = false,
+        const int ping_interval = 30,
+        const int handshake_timeout = 5
     );
 
     /***
@@ -357,6 +393,14 @@ public:
      */
     virtual void flush() override;
 
+    /***
+     * @brief check whether websocket is connected
+     */
+    inline bool isConnected() const noexcept
+    {
+        return connected_.load(std::memory_order_acquire);
+    }
+
 private:
     /***
      * @brief websocket client
@@ -369,7 +413,7 @@ private:
     std::atomic<bool> connected_ { false };
 
     /***
-     * @brief mutex for websocket client
+     * @brief websocket client mutex
      */
     mutable std::mutex ws_mtx_;
 
@@ -394,15 +438,26 @@ private:
     int handshake_timeout_;
 
     /***
-     * @brief callback function for websocket message
-     * @param msg websocket message
+     * @brief initialize websocket client configuration
      */
-    void on_message(const ix::WebSocketMessagePtr& msg);
+    void init();
 
     /***
      * @brief connect to websocket server
      */
     void connect();
+
+    /***
+     * @brief callback function for new message received
+     * @param msg message from server
+     */
+    void on_message(const ix::WebSocketMessagePtr& msg);
+
+    /***
+     * @brief load websocket configuration from JSON file
+     * @param file_name path to config file
+     */
+    void loadWebsocketConfig(std::string_view file_name);
 };
 } // namespace aw_logger
 

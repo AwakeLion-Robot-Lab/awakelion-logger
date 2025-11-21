@@ -7,6 +7,9 @@ build/
 # Vscode setting files
 .vscode/
 
+# Virtual environment
+.venv/
+
 # Prerequisites
 *.d
 

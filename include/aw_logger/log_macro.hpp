@@ -55,18 +55,20 @@ std::string format_message(std::string_view fmt, const Args&... args)
  * @param msg log message
  */
 #define AW_LOG_BASE(logger, level, msg) \
-    if (level >= logger->getThresLevel()) \
+    if (level >= logger->getThresholdLevel()) \
     { \
         try \
         { \
-            aw_logger::LogEventWrap(std::make_shared<aw_logger::LogEvent>( \
-                logger, \
-                level, \
-                aw_logger::LogEvent::LocalSourceLocation<std::string>( \
-                    msg, \
-                    std::source_location::current() \
+            aw_logger::LogEventWrap( \
+                std::make_shared<aw_logger::LogEvent>( \
+                    logger, \
+                    level, \
+                    aw_logger::LogEvent::LocalSourceLocation<std::string>( \
+                        msg, \
+                        std::source_location::current() \
+                    ) \
                 ) \
-            )); \
+            ); \
         } catch (std::exception & ex) \
         { \
             std::cerr << ex.what() << "\n" << std::endl; \
@@ -81,18 +83,20 @@ std::string format_message(std::string_view fmt, const Args&... args)
  * @param ... variadic arguments
  */
 #define AW_LOG_FMT_BASE(logger, level, fmt, ...) \
-    if (level >= logger->getThresLevel()) \
+    if (level >= logger->getThresholdLevel()) \
     { \
         try \
         { \
-            aw_logger::LogEventWrap(std::make_shared<aw_logger::LogEvent>( \
-                logger, \
-                level, \
-                aw_logger::LogEvent::LocalSourceLocation<std::string>( \
-                    aw_logger::format_message(fmt, ##__VA_ARGS__), \
-                    std::source_location::current() \
+            aw_logger::LogEventWrap( \
+                std::make_shared<aw_logger::LogEvent>( \
+                    logger, \
+                    level, \
+                    aw_logger::LogEvent::LocalSourceLocation<std::string>( \
+                        aw_logger::format_message(fmt, ##__VA_ARGS__), \
+                        std::source_location::current() \
+                    ) \
                 ) \
-            )); \
+            ); \
         } catch (std::exception & ex) \
         { \
             std::cerr << ex.what() << "\n" << std::endl; \

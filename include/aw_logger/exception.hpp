@@ -77,6 +77,13 @@ public:
     {}
 };
 
+class websocket_exception final: public aw_logger_exception {
+public:
+    explicit websocket_exception(std::string_view msg):
+        aw_logger_exception("[aw_logger]: websocket error: " + std::string(msg))
+    {}
+};
+
 } // namespace aw_logger
 
 #endif //! EXCEPTION_HPP

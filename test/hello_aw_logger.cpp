@@ -279,4 +279,28 @@ TEST(HelloAWLogger, CustomPatternParsing)
     SUCCEED();
 }
 
+TEST(BenchmarkLogger, WebsocketLogging)
+{
+    auto websocket_appender = std::make_shared<aw_logger::WebsocketAppender>("ws://127.0.0.1:1234");
+
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    if (!websocket_appender->isConnected())
+        std::this_thread::sleep_for(std::chrono::seconds(3));
+
+    auto websocket_logger = aw_logger::getLogger("websocket");
+    websocket_logger->setAppender(websocket_appender);
+    ASSERT_NE(websocket_logger, nullptr);
+
+    const int ITERATIONS = 100;
+    AW_LOG_NOTICE(websocket_logger, "你好，Awakelion Logger！开始进行websocket日志记录性能测试...");
+    for (int i = 0; i < ITERATIONS; i++)
+    {
+        AW_LOG_FMT_INFO(websocket_logger, "Awakelion Logger websocket上传的第{}次", i);
+    }
+    // do something...
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    SUCCEED();
+}
+
 #endif //! TEST__HELLO_AW_LOGGER_CPP

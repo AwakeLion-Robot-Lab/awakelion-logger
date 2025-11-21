@@ -134,10 +134,6 @@ A flexible and lightweight JSON C++ library for log pattern customization. Inclu
 
 A lightweight C++ WebSocket library for real-time log streaming.
 
-### Protobuf
-
-a lightning-fast serialized message type created by Google.
-
 ## Installation
 
 > Awakelion-Logger is a **header-only library**. Simply include the headers and configure the JSON file - no compilation required!
@@ -200,13 +196,13 @@ And you just make it! Now just include in your C++ files like below:
 
 ### Quick Start Example
 
-You can build test file and use command `./hello_aw_logger` to check out quickly, or you can write you first aw_logger file like below:
+You can start with code as below:
 
 ```cpp
 #include "aw_logger/aw_logger.hpp"
 
 int main() {
-    auto logger = aw_logger::getLogger();
+    auto logger = aw_logger::getLogger("hello_aw_logger");
 
     AW_LOG_INFO(logger, "Hello aw_logger!");
     AW_LOG_FMT_INFO(logger, "Value: {}", 42);
@@ -277,7 +273,9 @@ Performance tests conducted on the following environment:
 
 - [X] support `ComponentFactory` class which is used to manage component registration. @done(25-10-11 23:19)
 - [X] support `LoggerManager` singleton class to manager loggers in multi-threads. @started(25-10-11 23:19) @done(25-10-12 22:35)
-- [ ] support websocket for monitoring log information in real time, considering library as [IXWebSocket](https://github.com/machinezone/IXWebSocket.git). @started(25-10-15 03:33) @high
+- [X] support websocket for monitoring log information in real time, considering library as [IXWebSocket](https://github.com/machinezone/IXWebSocket). @started(25-10-15 03:33) @high @done(25-11-21 23:59) @lasted(5w2d20h26m48s)
 - [X] process ringbuffer load test and appenders latency test. @started(25-10-11 23:19) @high @done(25-10-18 00:08) @lasted(6d49m31s)
 - [X] support `%` as format specifier in `ComponentFactory` class. @low @done(25-10-29 22:40)
 - [X] after load test, consider to support double ringbuffer to reduce lock time. @low @done(25-10-18 03:02) [siyiya]: no need for now.
+- [ ] support formatter on cpp server, including uploading ANSI color and parse patterns like `Formatter` class. @low
+- [ ] support python server via `Flask`. @low

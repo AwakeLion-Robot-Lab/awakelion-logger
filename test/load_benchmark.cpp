@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TEST__BANCHMARK_CPP
-#define TEST__BANCHMARK_CPP
+#ifndef TEST__LOAD_BENCHMARK_CPP
+#define TEST__LOAD_BENCHMARK_CPP
 
 // GoogleTest library
 #include <gtest/gtest.h>
@@ -455,4 +455,4 @@ TEST(BenchmarkLogger, MultiThreadedLogging)
     SUCCEED();
 }
 
-#endif //! TEST__BANCHMARK_CPP
+#endif //! TEST__LOAD_BENCHMARK_CPP

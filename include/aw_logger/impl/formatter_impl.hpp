@@ -64,7 +64,7 @@ inline void ComponentFactory::registerComponents(const nlohmann::json& json)
             const auto& type = component["type"];
             /* color */
             if (type == "color")
-                registered_components_.push_back({ "color", component["level_colors"].dump(4) });
+                registered_components_.push_back({ "color", component["level_colors"].dump() });
 
             /* timestamp */
             else if (type == "timestamp")

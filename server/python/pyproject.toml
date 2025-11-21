@@ -1,0 +1,9 @@
+[project]
+name = "python"
+version = "0.1.0"
+description = "awakelion websocket python logging server here."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=3.1.2",
+]

@@ -15,7 +15,10 @@
 #ifndef SERVER__WEBSOCKET_SERVER_HPP
 #define SERVER__WEBSOCKET_SERVER_HPP
 
-// aw_logger library
+// C++ standard library
+#include <functional>
+#include <string>
+#include <string_view>
 
 // IXWebSocket library
 #include <ixwebsocket/IXWebSocketServer.h>
@@ -33,17 +36,49 @@ namespace aw_logger {
 class WebSocketServer {
 public:
     /***
-     * @brief constructor
-     * @param port listening port
-     * @param host listening host
+     * @brief handler for button click event
      */
-    WebSocketServer(int port = 9002, const std::string& host = "localhost");
+    using onClickHandler = std::function<const std::string&()>;
+
+    /***
+     * @brief constructor
+     * @param port port
+     * @param host host
+     */
+    WebSocketServer(const int port = 1234, const std::string_view host = "0.0.0.0");
+
+    WebSocketServer(const WebSocketServer&) = delete;
+    WebSocketServer(WebSocketServer&&) = delete;
+    WebSocketServer& operator=(const WebSocketServer&) = delete;
+    WebSocketServer& operator=(WebSocketServer&&) = delete;
+
+    /***
+     * @brief destructor
+     */
+    ~WebSocketServer();
+
+    /***
+     * @brief run the websocket server
+     */
+    void run();
 
 private:
     /***
      * @brief websocket server
      */
-    ix::WebSocketServer ws_server_;
+    ix::WebSocketServer wss_;
+
+    /***
+     * @brief callback for new message arrived from linked client
+     * @param cs connection state
+     * @param ws linked client
+     * @param msg message from client
+     */
+    void on_client_message(
+        std::shared_ptr<ix::ConnectionState> cs,
+        ix::WebSocket& ws,
+        const ix::WebSocketMessagePtr& msg
+    );
 };
 } // namespace aw_logger
 

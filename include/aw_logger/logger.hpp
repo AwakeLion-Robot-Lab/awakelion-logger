@@ -64,8 +64,13 @@ public:
 
     /***
      * @brief constructor
+     * @param lvl log level threshold for logger
+     * @param name logger name
      */
-    explicit Logger(const std::string& name = "root");
+    explicit Logger(
+        const std::string& name = "root",
+        const LogLevel::level lvl = LogLevel::level::DEBUG
+    );
 
     /***
      * @brief destructor
@@ -84,8 +89,8 @@ public:
     void submit(const std::shared_ptr<LogEvent>& event);
 
     /***
-     * @brief set log level threshold
-     * @param thres log level threshold
+     * @brief set log level threshold for logger
+     * @param thres log level threshold for logger
      */
     void setThresholdLevel(LogLevel::level thres)
     {
@@ -93,9 +98,10 @@ public:
     }
 
     /***
-     * @brief get log level threshold
+     * @brief get log level threshold available for logger
+     * @return log level threshold available for logger
      */
-    inline LogLevel::level getThresLevel() const noexcept
+    inline LogLevel::level getThresholdLevel() const noexcept
     {
         return threshold_level_.load(std::memory_order_acquire);
     }

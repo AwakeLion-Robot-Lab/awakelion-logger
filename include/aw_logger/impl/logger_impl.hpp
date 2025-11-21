@@ -22,9 +22,9 @@
 #include "aw_logger/logger.hpp"
 
 namespace aw_logger {
-inline Logger::Logger(const std::string& name):
+inline Logger::Logger(const std::string& name, const LogLevel::level lvl):
     rb_(256),
-    threshold_level_(LogLevel::level::DEBUG),
+    threshold_level_(lvl),
     running_(false),
     name_(name)
 {}
@@ -38,8 +38,9 @@ inline Logger::~Logger()
 
 void Logger::submit(const std::shared_ptr<LogEvent>& event)
 {
-    /* check status of event */
-    if (event == nullptr || event->getLogLevel() < threshold_level_)
+    /* check status of log level */
+    auto curr_level = getThresholdLevel();
+    if (event == nullptr || event->getLogLevel() < curr_level)
         return;
 
     /* get status of appenders list via thread-safe copy */

@@ -39,16 +39,8 @@ if has_config("test") then
     add_requires("gtest 1.17.0", {configs = {main = true}})
 end
 add_requires("ixwebsocket v11.4.6")
-add_requires("protobuf-cpp 32.1")
 
 namespace("aw_logger")
-    -- protobuf file generation
-    target("aw_logger_proto")
-        set_kind("static")
-        add_files("server/proto/*.proto", {rules = "protobuf.cpp"})
-        add_packages("protobuf-cpp", {public = true})
-        add_includedirs("$(builddir)", {public = true})
-
     -- header-only library
     target("aw_logger_header")
         set_kind("headeronly")
@@ -58,7 +50,6 @@ namespace("aw_logger")
         add_includedirs("$(builddir)", {public = true})
 
         -- dependencies
-        add_deps("aw_logger_proto")
         add_packages("ixwebsocket", {public = true})
 
         -- configuration
@@ -75,6 +66,17 @@ namespace("aw_logger")
                 raise("can not find aw_logger_settings.json: " .. config)
             end
         end)
+
+    -- cpp server
+    target("aw_logger_cpp_server")
+        set_kind("binary")
+        set_default(false)
+        add_includedirs("server/cpp")
+        add_includedirs("include/3rdparty", {public = true})
+        add_files("server/cpp/*.cpp")
+
+        -- dependencies
+        add_packages("ixwebsocket", {public = true})
 
     -- test
     if has_config("test") then
