@@ -16,7 +16,6 @@ set_xmakever("2.9.8")
 set_license("Apache-2.0")
 
 set_defaultplat("linux")
-set_defaultarchs("linux|arm64")
 set_languages("c11", "c++20")
 
 add_rules("mode.debug", "mode.release")
@@ -26,6 +25,7 @@ if is_mode("debug") then
     add_cxflags("-g")
 elseif is_mode("release") then
     set_optimize("fastest")
+    add_cxflags("-march=native")
     add_cxflags("-w")
 end
 

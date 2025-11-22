@@ -163,6 +163,7 @@ cd awakelion-logger
 
 ```bash
 # download requirement
+sudo apt install -y libssl-dev
 xmake build -y
 
 # build and run tests (optional)
@@ -277,5 +278,5 @@ Performance tests conducted on the following environment:
 - [X] process ringbuffer load test and appenders latency test. @started(25-10-11 23:19) @high @done(25-10-18 00:08) @lasted(6d49m31s)
 - [X] support `%` as format specifier in `ComponentFactory` class. @low @done(25-10-29 22:40)
 - [X] after load test, consider to support double ringbuffer to reduce lock time. @low @done(25-10-18 03:02) [siyiya]: no need for now.
-- [ ] support formatter on cpp server, including uploading ANSI color and parse patterns like `Formatter` class. @low
+- [X] support formatter on cpp server, including uploading ANSI color and parse patterns like `Formatter` class. @low
 - [ ] support python server via `Flask`. @low
