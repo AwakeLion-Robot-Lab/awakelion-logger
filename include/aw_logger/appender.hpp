@@ -395,6 +395,7 @@ public:
 
     /***
      * @brief check whether websocket is connected
+     * @return connection status
      */
     inline bool isConnected() const noexcept
     {

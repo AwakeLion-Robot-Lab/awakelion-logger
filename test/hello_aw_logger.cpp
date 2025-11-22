@@ -279,7 +279,7 @@ TEST(HelloAWLogger, CustomPatternParsing)
     SUCCEED();
 }
 
-TEST(BenchmarkLogger, WebsocketLogging)
+TEST(HelloAWLogger, WebsocketLogging)
 {
     auto websocket_appender = std::make_shared<aw_logger::WebsocketAppender>("ws://127.0.0.1:1234");
 
@@ -296,12 +296,12 @@ TEST(BenchmarkLogger, WebsocketLogging)
         websocket_logger,
         "Hello Awakelion Logger! Starting websocket logging performance test..."
     );
-    for (int i = 0; i < ITERATIONS; i++)
+    for (int i = 1; i <= ITERATIONS; i++)
     {
         AW_LOG_FMT_INFO(websocket_logger, "Awakelion Logger websocket uploading cout: {}.", i);
         // do something like switch threshold level
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        AW_LOG_ERROR(websocket_logger, "threshold level switch testing");
+        AW_LOG_FATAL(websocket_logger, "threshold level switch testing");
     }
 
     SUCCEED();

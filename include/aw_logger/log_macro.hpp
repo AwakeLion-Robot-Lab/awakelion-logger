@@ -17,6 +17,7 @@
 
 // C++ standard library
 #include <exception>
+#include <format>
 #include <memory>
 #include <string>
 
