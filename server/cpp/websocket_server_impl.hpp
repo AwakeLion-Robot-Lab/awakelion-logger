@@ -16,7 +16,6 @@
 #define SERVER__WEBSOCKET_SERVER_IMPL_HPP
 
 // C++ standard library
-#include <exception>
 #include <iostream>
 #include <memory>
 
@@ -89,29 +88,16 @@ void WebSocketServer::on_client_message(
     }
     else if (msg->type == ix::WebSocketMessageType::Message)
     {
-        // TODO: what about more customized message format just like `aw_logger::Formatter`? support color within uploading ANSI?
-        auto const json_msg = nlohmann::json::parse(msg->str);
-        if (json_msg.contains("timestamp"))
-            std::cout << "[" << json_msg["timestamp"].get<long long>() << "] ";
-
-        if (json_msg.contains("level"))
-            std::cout << "[" << json_msg["level"].get<std::string>() << "] ";
-
-        if (json_msg.contains("tid"))
-            std::cout << "[" << json_msg["tid"].get<size_t>() << "] ";
-
-        if (json_msg.contains("file_name") && json_msg.contains("line"))
+        for (auto&& client: wss_.getClients())
         {
-            std::cout << "[" << json_msg["file_name"].get<std::string>() << ":";
-            if (json_msg.contains("function_name"))
-                std::cout << json_msg["function_name"].get<std::string>() << ":";
-            std::cout << json_msg["line"].get<int>() << "] ";
+            if (client.get() != &ws)
+            {
+                if (msg->binary)
+                    client->sendBinary(msg->str);
+                else
+                    client->sendUtf8Text(msg->str);
+            }
         }
-
-        if (json_msg.contains("msg"))
-            std::cout << json_msg["msg"].get<std::string>();
-
-        std::cout << std::endl;
     }
 }
 } // namespace aw_logger

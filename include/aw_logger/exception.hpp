@@ -77,6 +77,9 @@ public:
     {}
 };
 
+/***
+ * @brief websocket exception
+ */
 class websocket_exception final: public aw_logger_exception {
 public:
     explicit websocket_exception(std::string_view msg):

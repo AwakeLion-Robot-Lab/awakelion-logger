@@ -111,7 +111,7 @@ TEST(HelloAWLogger, MultiLoggerCall)
     ASSERT_NE(logger_auth, nullptr);
 
     // Create log directory if it doesn't exist and set log file path
-    const auto log_dir = std::filesystem::current_path() / "log";
+    const auto log_dir = std::filesystem::current_path() / "test";
     std::filesystem::create_directories(log_dir);
     const auto log_path = log_dir / "test.log";
 
@@ -283,22 +283,26 @@ TEST(BenchmarkLogger, WebsocketLogging)
 {
     auto websocket_appender = std::make_shared<aw_logger::WebsocketAppender>("ws://127.0.0.1:1234");
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     if (!websocket_appender->isConnected())
-        std::this_thread::sleep_for(std::chrono::seconds(3));
+        std::this_thread::sleep_for(std::chrono::seconds(1));
 
     auto websocket_logger = aw_logger::getLogger("websocket");
     websocket_logger->setAppender(websocket_appender);
     ASSERT_NE(websocket_logger, nullptr);
 
     const int ITERATIONS = 100;
-    AW_LOG_NOTICE(websocket_logger, "你好，Awakelion Logger！开始进行websocket日志记录性能测试...");
+    AW_LOG_NOTICE(
+        websocket_logger,
+        "Hello Awakelion Logger! Starting websocket logging performance test..."
+    );
     for (int i = 0; i < ITERATIONS; i++)
     {
-        AW_LOG_FMT_INFO(websocket_logger, "Awakelion Logger websocket上传的第{}次", i);
+        AW_LOG_FMT_INFO(websocket_logger, "Awakelion Logger websocket uploading cout: {}.", i);
+        // do something like switch threshold level
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        AW_LOG_ERROR(websocket_logger, "threshold level switch testing");
     }
-    // do something...
-    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     SUCCEED();
 }

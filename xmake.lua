@@ -38,6 +38,7 @@ option_end()
 if has_config("test") then
     add_requires("gtest 1.17.0", {configs = {main = true}})
 end
+add_requires("openssl", {system = true})
 add_requires("ixwebsocket v11.4.6")
 
 namespace("aw_logger")

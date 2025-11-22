@@ -16,6 +16,7 @@
 #define IMPL__WEBSOCKET_APPENDER_IMPL_HPP
 
 // C++ standard library
+#include <format>
 #include <functional>
 
 // nlohmann JSON library
@@ -81,32 +82,36 @@ void aw_logger::WebsocketAppender::append(const LogEvent::Ptr& event)
     nlohmann::json log_msg_json;
     {
         std::lock_guard<std::mutex> app_lk(app_mtx_);
-        const auto& components = formatter_->getRegisteredComponents();
-
-        for (const auto& [key, _]: components)
+        auto const& components = formatter_->getRegisteredComponents();
+        for (auto const& [key, format]: components)
         {
+            /* FIXME(siyiya): I have no idea how to format it without `std::format`, so if you have better approach, just pull request */
             if (key == "timestamp")
-                log_msg_json["timestamp"] = event->getTimestamp().time_since_epoch().count();
+                log_msg_json["timestamp"] = std::format("[{}]", event->getTimestamp());
             else if (key == "level")
                 log_msg_json["level"] = event->getLogLevelString();
             else if (key == "tid")
                 log_msg_json["tid"] = event->getThreadId();
-            else if (key == "file_name")
-                log_msg_json["file_name"] = event->getSourceLocation().file_name();
-            else if (key == "function_name")
-                log_msg_json["function_name"] = event->getSourceLocation().function_name();
-            else if (key == "line")
-                log_msg_json["line"] = event->getSourceLocation().line();
+            else if (key == "loc")
+            {
+                auto const& loc = event->getSourceLocation();
+                if (format.find("{file_name}") != std::string::npos)
+                    log_msg_json["file_name"] = loc.file_name();
+                if (format.find("{function_name}") != std::string::npos)
+                    log_msg_json["function_name"] = loc.function_name();
+                if (format.find("{line}") != std::string::npos)
+                    log_msg_json["line"] = loc.line();
+            }
             else if (key == "msg")
                 log_msg_json["msg"] = event->getMsg();
         }
     }
 
-    /* send to server */
-    std::string log_msg_str = log_msg_json.dump();
+    /* send binary to server */
+    auto const& binary_msg = nlohmann::json::to_msgpack(log_msg_json);
     {
         std::lock_guard<std::mutex> ws_lk(ws_mtx_);
-        auto res = ws_.sendUtf8Text(log_msg_str);
+        auto res = ws_.sendBinary(binary_msg);
         if (!res.success)
         {
             std::cerr << "websocket send log message failed, payload size: " << res.payloadSize
@@ -169,9 +174,34 @@ void aw_logger::WebsocketAppender::on_message(const ix::WebSocketMessagePtr& msg
     }
     else if (msg_type == ix::WebSocketMessageType::Message)
     {
-        auto const rx_msg = msg->str;
-        std::cout << "client received message: " << rx_msg << std::endl;
-        // this->setThresholdLevel(LogLevel::from_string(rx_msg));
+        try
+        {
+            auto const json_msg = nlohmann::json::parse(msg->str);
+            if (json_msg.contains("command") && json_msg["command"] == "SET_LEVEL")
+            {
+                if (json_msg.contains("level"))
+                {
+                    std::string level_str = json_msg["level"];
+                    this->setThresholdLevel(LogLevel::from_string(level_str));
+
+                    /* feedback handler */
+                    nlohmann::json feedback;
+                    feedback["level"] = "NOTICE";
+                    feedback["msg"] = "threshold level has changed to: " + level_str;
+                    feedback["tid"] = "SYSTEM";
+
+                    auto const duration = std::chrono::system_clock::now().time_since_epoch();
+                    feedback["timestamp"] =
+                        std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+
+                    std::lock_guard<std::mutex> ws_lk(ws_mtx_);
+                    ws_.sendUtf8Text(feedback.dump());
+                }
+            }
+        } catch (const std::exception& ex)
+        {
+            // DO NOT handle exception
+        }
     }
 }
 

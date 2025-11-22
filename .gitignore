@@ -10,6 +10,9 @@ build/
 # Virtual environment
 .venv/
 
+# Node modules
+node_modules/
+
 # Prerequisites
 *.d
 
