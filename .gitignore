@@ -11,7 +11,7 @@ build/
 .venv/
 
 # Node modules
-node_modules/
+viewer/node_modules/
 
 # Prerequisites
 *.d

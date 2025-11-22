@@ -27,7 +27,7 @@ int main(int argc, char** argv)
     else
     {
         port = 1234;
-        host = "127.0.0.1";
+        host = "0.0.0.0";
     }
 
     aw_logger::WebSocketServer server(port, host);

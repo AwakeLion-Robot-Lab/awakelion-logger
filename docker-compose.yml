@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.server
+      network: host
+    ports:
+      - "1234:1234"
+    restart: always
+
+  viewer:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.viewer
+      network: host
+    ports:
+      - "5173:5173"
+    depends_on:
+      - server
+    volumes:
+      - ./viewer:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true

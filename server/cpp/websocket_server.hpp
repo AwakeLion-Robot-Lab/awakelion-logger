@@ -36,11 +36,6 @@ namespace aw_logger {
 class WebSocketServer {
 public:
     /***
-     * @brief handler for button click event
-     */
-    using onClickHandler = std::function<const std::string&()>;
-
-    /***
      * @brief constructor
      * @param port port
      * @param host host
