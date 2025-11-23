@@ -63,12 +63,15 @@ WebsocketAppender::WebsocketAppender(
 
 aw_logger::WebsocketAppender::~WebsocketAppender()
 {
-    if (!connected_.load())
+    bool expected = true;
+    if (!connected_.compare_exchange_strong(expected, false))
         return;
 
-    std::lock_guard<std::mutex> ws_lk(ws_mtx_);
+    {
+        /* as a barrier to make sure no sending during stopping */
+        std::lock_guard<std::mutex> ws_lk(ws_mtx_);
+    }
     ws_.stop();
-    connected_.store(false);
 }
 
 void aw_logger::WebsocketAppender::append(const LogEvent::Ptr& event)
@@ -87,7 +90,7 @@ void aw_logger::WebsocketAppender::append(const LogEvent::Ptr& event)
         {
             /* FIXME(siyiya): I have no idea how to format it without `std::format`, so if you have better approach, just pull request */
             if (key == "timestamp")
-                log_msg_json["timestamp"] = std::format("[{}]", event->getTimestamp());
+                log_msg_json["timestamp"] = std::format("{}", event->getTimestamp());
             else if (key == "level")
                 log_msg_json["level"] = event->getLogLevelString();
             else if (key == "tid")

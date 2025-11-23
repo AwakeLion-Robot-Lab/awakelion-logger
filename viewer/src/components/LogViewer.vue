@@ -147,7 +147,8 @@ const filteredLogs = computed(() => {
   return logs.value.filter(log => {
     return (log.msg && log.msg.toLowerCase().includes(lowerFilter)) ||
            (log.level && log.level.toLowerCase().includes(lowerFilter)) ||
-           (log.file_name && log.file_name.toLowerCase().includes(lowerFilter))
+           (log.file_name && log.file_name.toLowerCase().includes(lowerFilter)) ||
+           (log.function_name && log.function_name.toLowerCase().includes(lowerFilter))
   })
 })
 
@@ -162,7 +163,15 @@ const formatTime = (ts) => {
   else if (ts > 1000000000000000) ms = ts / 1000
 
   const date = new Date(Number(ms))
-  return date.toLocaleTimeString('en-GB') + '.' + String(Math.floor(ms % 1000)).padStart(3, '0')
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  const h = String(date.getHours()).padStart(2, '0')
+  const min = String(date.getMinutes()).padStart(2, '0')
+  const s = String(date.getSeconds()).padStart(2, '0')
+  const msStr = String(Math.floor(ms % 1000)).padStart(3, '0')
+
+  return `${y}-${m}-${d} ${h}:${min}:${s}.${msStr}`
 }
 
 onMounted(() => {
@@ -244,10 +253,10 @@ onUnmounted(() => {
         class="log-entry"
         :class="log.level ? log.level.toLowerCase() : log.type"
       >
-        <span v-if="log.timestamp" class="timestamp">{{ formatTime(log.timestamp) }}</span>
-        <span v-if="log.level" class="level">{{ log.level }}</span>
-        <span v-if="log.tid" class="tid">TID:{{ log.tid }}</span>
-        <span v-if="log.file_name" class="location">[{{ log.file_name }}:{{ log.line }}]</span>
+        <span v-if="log.timestamp" class="timestamp">[{{ formatTime(log.timestamp) }}]</span>
+        <span v-if="log.level" class="level">[{{ log.level }}]</span>
+        <span v-if="log.tid" class="tid">[TID: {{ log.tid }}]</span>
+        <span v-if="log.file_name" class="location">[{{ log.file_name }}<span v-if="log.function_name" class="function">:{{ log.function_name }}</span>:{{ log.line }}]</span>
         <span class="message">{{ log.msg }}</span>
       </div>
     </div>
@@ -501,23 +510,23 @@ onUnmounted(() => {
 .message { color: #cccccc; white-space: pre-wrap; word-break: break-all; flex: 1; }
 
 /* Log Levels Styling - Matching aw_logger_settings.json */
+.debug .level { color: #ffffff; background: rgba(255, 255, 255, 0.1); } /* white */
+.debug { border-left-color: #ffffff; }
+
 .info .level { color: #00ffff; background: rgba(0, 255, 255, 0.1); } /* cyan */
 .info { border-left-color: #00ffff; }
+
+.notice .level { color: #448aff; background: rgba(68, 138, 255, 0.1); } /* blue (adjusted for dark mode) */
+.notice { border-left-color: #448aff; }
 
 .warn .level { color: #ffff00; background: rgba(255, 255, 0, 0.1); } /* yellow */
 .warn { border-left-color: #ffff00; }
 
 .error .level { color: #ff0000; background: rgba(255, 0, 0, 0.1); } /* red */
-.error { border-left-color: #ff0000; }
+.error { border-left-color: #ff0000; background: rgba(255, 0, 0, 0.05); }
 
 .fatal .level { color: #ff00ff; background: rgba(255, 0, 255, 0.1); } /* magenta */
 .fatal { border-left-color: #ff00ff; background: rgba(255, 0, 255, 0.05); }
-
-.debug .level { color: #ffffff; background: rgba(255, 255, 255, 0.1); } /* white */
-.debug { border-left-color: #ffffff; }
-
-.notice .level { color: #448aff; background: rgba(68, 138, 255, 0.1); } /* blue (adjusted for dark mode) */
-.notice { border-left-color: #448aff; }
 
 .system {
   color: #808080;

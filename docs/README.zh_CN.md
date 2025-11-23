@@ -271,5 +271,5 @@ int main() {
 - [X] 处理环形缓冲区负载测试和附加器延迟测试。 @started(25-10-11 23:19) @high @done(25-10-18 00:08) @lasted(6d49m31s) @lasted(5w2d20h26m48s)
 - [X] 在 `ComponentFactory` 类中支持 `%` 作为格式说明符。 @low
 - [X] 在负载测试后，考虑支持双环形缓冲区以减少锁的颗粒度。 @low @done(25-10-18 03:02) [siyiya]: 目前暂时不需要。
-- [X] 支持 C++ 服务器的格式化器，包括上传 ANSI 颜色和格式解析，就像 `Formatter` 类一样。 @low
+- [X] 支持 C++ 服务器的格式化器，包括上传 ANSI 颜色和格式解析，就像 `Formatter` 类一样。 @low @done(25-11-23 20:33)
 - [ ] 支持基于 `Flask` 的 Python 服务器。 @low
