@@ -55,6 +55,7 @@ std::string format_message(std::string_view fmt, const Args&... args)
  * @param level input log level
  * @param msg log message
  */
+// clang-format off
 #define AW_LOG_BASE(logger, level, msg) \
     if (level >= logger->getThresholdLevel()) \
     { \
@@ -75,6 +76,7 @@ std::string format_message(std::string_view fmt, const Args&... args)
             std::cerr << ex.what() << "\n" << std::endl; \
         } \
     }
+// clang-format on
 
 /***
  * @brief aw logger fmt macro definition with `std::format` support
@@ -83,6 +85,7 @@ std::string format_message(std::string_view fmt, const Args&... args)
  * @param fmt unformatted log message
  * @param ... variadic arguments
  */
+// clang-format off
 #define AW_LOG_FMT_BASE(logger, level, fmt, ...) \
     if (level >= logger->getThresholdLevel()) \
     { \
@@ -103,6 +106,7 @@ std::string format_message(std::string_view fmt, const Args&... args)
             std::cerr << ex.what() << "\n" << std::endl; \
         } \
     }
+// clang-format on
 
 #define AW_LOG_DEBUG(logger, msg) AW_LOG_BASE(logger, aw_logger::LogLevel::level::DEBUG, msg)
 

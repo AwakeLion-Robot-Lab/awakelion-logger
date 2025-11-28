@@ -422,7 +422,7 @@ TEST(BenchmarkLogger, MultiThreadedLogging)
     auto logger = aw_logger::getLogger();
     ASSERT_NE(logger, nullptr);
 
-    const int NUM_THREADS = 4;
+    const int NUM_THREADS = 8;
     const int LOGS_PER_THREAD = 50000;
     std::vector<std::thread> threads;
 

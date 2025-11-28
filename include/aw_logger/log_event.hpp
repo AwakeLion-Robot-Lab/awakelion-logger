@@ -17,6 +17,7 @@
 
 // C++ standard library
 #include <chrono>
+#include <concepts>
 #include <source_location>
 #include <thread>
 
@@ -57,17 +58,20 @@ public:
          * which means that the real source location is the call site of `LogEvent` constructor
          * you can refer to `log_macro.hpp`
          */
+        // clang-format off
         template<typename U>
-        requires std::constructible_from<DataT, U>
+            requires std::constructible_from<DataT, U>
         // `std::constructible_from<DataT,U>` check whether `DataT` can be constructed from `U`
         constexpr LocalSourceLocation(
             U&& u_ref,
             const std::source_location loc = std::source_location::current()
         ):
-            data_(std::forward<U>(u_ref)
+            data_(
+                std::forward<U>(u_ref)
             ), // `std::forward<U>` can judge whether `U` is lvalue or rvalue
             loc_(std::move(loc))
         {}
+        // clang-format on
 
         /***
          * @brief get input data

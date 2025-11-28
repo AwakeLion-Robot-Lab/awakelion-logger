@@ -16,7 +16,9 @@
 #define IMPL__LOGGER_IMPL_HPP
 
 // C++ standard library
+#include <algorithm>
 #include <typeinfo>
+#include <vector>
 
 // aw_logger library
 #include "aw_logger/exception.hpp"
@@ -74,13 +76,9 @@ void Logger::submit(const std::shared_ptr<LogEvent>& event)
     }
 
     if (curr_root_logger != nullptr)
-    {
         curr_root_logger->submit(event);
-    }
     else
-    {
         throw aw_logger::invalid_parameter("root logger is nullptr!");
-    }
 }
 
 inline void Logger::setRootLogger(const Logger::Ptr& root_logger)
@@ -103,18 +101,37 @@ inline void Logger::setAppender(const std::shared_ptr<BaseAppender>& appender)
 
     std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
     /* check existing and set appender under write lock for thread-safe */
-    for (const auto& ex_app: appenders_)
-    {
-        if (ex_app == appender)
-        {
-            throw aw_logger::invalid_parameter(
-                std::string("an existing-type appender like: ") + typeid(*appender).name()
-                + "has already setup!"
-            );
-        }
-    }
+    bool ok = std::any_of(
+        appenders_.begin(),
+        appenders_.end(),
+        [&appender](const std::shared_ptr<BaseAppender>& ex_app) { return (ex_app == appender); }
+    );
+    if (ok)
+        throw aw_logger::invalid_parameter(
+            std::string("an existing-type appender like: ") + typeid(*appender).name()
+            + "has already setup!"
+        );
 
     appenders_.emplace_back(appender);
+}
+
+template<typename... UArgs>
+    requires(std::convertible_to<UArgs, std::shared_ptr<BaseAppender>> && ...)
+void aw_logger::Logger::setAppenders(UArgs&&... appenders)
+{
+    /* check duplicate first */
+    std::vector<std::shared_ptr<BaseAppender>> temp_appenders { std::forward<UArgs>(appenders)... };
+
+    /* `std::sort` for faster search */
+    std::sort(temp_appenders.begin(), temp_appenders.end());
+    auto duplicate_it = std::adjacent_find(temp_appenders.begin(), temp_appenders.end());
+    if (duplicate_it != temp_appenders.end())
+        throw aw_logger::invalid_parameter("input appenders exist duplicate(s)!");
+
+    for (const auto& app: temp_appenders)
+    {
+        setAppender(app);
+    }
 }
 
 inline void Logger::removeAppender(const std::shared_ptr<BaseAppender>& appender)
@@ -281,13 +298,9 @@ inline Logger::Ptr LoggerManager::getLogger(const std::string& name)
         auto [it, inserted] = loggers_map_.try_emplace(name, logger);
         /* if this logger has create, `inserted` == false and it won't be construct */
         if (!inserted)
-        {
             return it->second;
-        }
         else
-        {
             return logger;
-        }
     }
 }
 

@@ -16,6 +16,7 @@
 #define IMPL__WEBSOCKET_APPENDER_IMPL_HPP
 
 // C++ standard library
+#include <chrono>
 #include <format>
 #include <functional>
 
@@ -83,6 +84,7 @@ void aw_logger::WebsocketAppender::append(const LogEvent::Ptr& event)
 
     /* create json for message serialization */
     nlohmann::json log_msg_json;
+    // clang-format off
     {
         std::lock_guard<std::mutex> app_lk(app_mtx_);
         auto const& components = formatter_->getRegisteredComponents();
@@ -109,11 +111,16 @@ void aw_logger::WebsocketAppender::append(const LogEvent::Ptr& event)
                 log_msg_json["msg"] = event->getMsg();
         }
     }
+    // clang-format on
 
     /* send binary to server */
     auto const& binary_msg = nlohmann::json::to_msgpack(log_msg_json);
     {
         std::lock_guard<std::mutex> ws_lk(ws_mtx_);
+        /* prevent for destructor */
+        if (!connected_.load(std::memory_order_relaxed))
+            return;
+
         auto res = ws_.sendBinary(binary_msg);
         if (!res.success)
         {
@@ -150,11 +157,13 @@ void aw_logger::WebsocketAppender::connect()
 void aw_logger::WebsocketAppender::on_message(const ix::WebSocketMessagePtr& msg)
 {
     auto msg_type = msg->type;
+    // clang-format off
     if (msg_type == ix::WebSocketMessageType::Open)
     {
         std::cout << "client connected to: " << url_ << std::endl;
         connected_.store(true);
     }
+    // clang-format on
     else if (msg_type == ix::WebSocketMessageType::Close)
     {
         std::cout << "server closed: [code: " << msg->closeInfo.code << "] "
@@ -169,11 +178,6 @@ void aw_logger::WebsocketAppender::on_message(const ix::WebSocketMessagePtr& msg
                   << "\n wait_time(ms): " << error_info.wait_time
                   << "\n HTTP_status: " << error_info.http_status << std::endl;
         connected_.store(false);
-    }
-    else if (msg_type == ix::WebSocketMessageType::Ping
-             || msg_type == ix::WebSocketMessageType::Pong)
-    {
-        std::cout << "client ping/pong from: " << msg->openInfo.uri << std::endl;
     }
     else if (msg_type == ix::WebSocketMessageType::Message)
     {

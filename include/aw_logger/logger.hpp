@@ -17,6 +17,7 @@
 
 // C++ standard library
 #include <atomic>
+#include <concepts>
 #include <condition_variable>
 #include <iostream>
 #include <list>
@@ -117,6 +118,16 @@ public:
      * @param appender appender to be added
      */
     void setAppender(const std::shared_ptr<BaseAppender>& appender);
+
+    /***
+     * @brief set multiple appenders to appender list
+     * @tparam UArgs variadic template of appender types
+     * @param appenders multiple appenders to be added
+     * @details `std::convertible_to` check whether `UArgs` can be converted to `std::shared_ptr<BaseAppender>`
+     */
+    template<typename... UArgs>
+        requires(std::convertible_to<UArgs, std::shared_ptr<BaseAppender>> && ...)
+    void setAppenders(UArgs&&... appenders);
 
     /***
      * @brief remove specific appender from appender list

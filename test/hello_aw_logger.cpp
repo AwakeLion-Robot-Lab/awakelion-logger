@@ -298,10 +298,43 @@ TEST(HelloAWLogger, WebsocketLogging)
     );
     for (int i = 1; i <= ITERATIONS; i++)
     {
-        AW_LOG_FMT_INFO(websocket_logger, "Awakelion Logger websocket uploading cout: {}.", i);
+        AW_LOG_FMT_INFO(websocket_logger, "Awakelion Logger websocket uploading count: {}.", i);
         // do something like switch threshold level
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         AW_LOG_FATAL(websocket_logger, "threshold level switch testing");
+    }
+
+    SUCCEED();
+}
+
+TEST(HelloAWLogger, MultiAppendersLogging)
+{
+    const auto log_dir = std::filesystem::current_path() / "test";
+    std::filesystem::create_directories(log_dir);
+    const auto log_path = log_dir / "test.log";
+
+    auto console_appender = std::make_shared<aw_logger::ConsoleAppender>();
+    auto file_appender = std::make_shared<aw_logger::FileAppender>(log_path.string());
+    auto websocket_appender = std::make_shared<aw_logger::WebsocketAppender>("ws://127.0.0.1:1234");
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    if (!websocket_appender->isConnected())
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    ASSERT_NE(console_appender, nullptr);
+    ASSERT_NE(file_appender, nullptr);
+    ASSERT_NE(websocket_appender, nullptr);
+
+    auto logger = aw_logger::getLogger("multi_appender");
+    logger->setAppenders(console_appender, file_appender, websocket_appender);
+    ASSERT_NE(logger, nullptr);
+
+    const int ITERATIONS = 100;
+    AW_LOG_NOTICE(logger, "Starting concurrent multi-appenders logging performance test...");
+    for (int i = 1; i <= ITERATIONS; i++)
+    {
+        AW_LOG_FMT_INFO(logger, "Multi-appenders logging count: {}.", i);
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
 
     SUCCEED();
