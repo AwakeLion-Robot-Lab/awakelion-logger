@@ -46,6 +46,7 @@ namespace("fosu-awakelion")
     target("awakelion-logger")
         set_kind("headeronly")
         add_headerfiles("include/(aw_logger/**.hpp)")
+        add_headerfiles("include/3rdparty/(nlohmann/**.hpp)")
         add_includedirs("include", {public = true})
         add_includedirs("include/3rdparty", {public = true})
         add_includedirs("$(builddir)", {public = true})
@@ -137,4 +138,4 @@ namespace("fosu-awakelion")
 --]]
         end
     end
-namespace_end() -- namespace awakelion
+namespace_end() -- namespace fosu-awakelion
