@@ -16,8 +16,22 @@
 #define SETTINGS_PATH_H
 
 // C++ standard library
+#include <filesystem>
 #include <string>
 
-const std::string SETTINGS_FILE_PATH = "@SETTINGS_FILE_PATH@";
+inline std::string get_settings_path()
+{
+    std::string path_str = "@SETTINGS_FILE_PATH@";
+    if (!path_str.empty())
+    {
+        return path_str;
+    }
+    std::filesystem::path current_file = __FILE__;
+    return (current_file.parent_path().parent_path().parent_path()
+            / "share/aw_logger/aw_logger_settings.json")
+        .string();
+}
+
+const std::string SETTINGS_FILE_PATH = get_settings_path();
 
 #endif //! SETTINGS_PATH_H

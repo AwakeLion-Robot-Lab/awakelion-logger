@@ -60,7 +60,7 @@ namespace("fosu-awakelion")
             set_configvar("SETTINGS_FILE_PATH", path.absolute("config/aw_logger_settings.json"))
         else
         -- integration install
-            set_configvar("SETTINGS_FILE_PATH", path.join("$(prefix)", "share/aw_logger/aw_logger_settings.json"))
+            set_configvar("SETTINGS_FILE_PATH", "")
         end
         add_configfiles("config/settings_path.h.in", {
             filename = "aw_logger/settings_path.h",

@@ -152,6 +152,7 @@ buffer_ = allocator_trait::allocate(alloc_, r_capacity);
 你可以通过命令 `xmake install awakelion-logger` 安装到你的项目中，或者在你的项目的 `xmake.lua` 中进行内置集成，如下所示：
 ```bash
 -- ...exist codes
+add_repositories("awakelion-xmake-repo https://github.com/AwakeLion-Robot-Lab/awakelion-xmake-repo.git")
 add_requires("awakelion-logger")
 ```
 

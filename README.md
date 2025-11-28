@@ -151,6 +151,7 @@ this project is built via `xmake`, manage via `xrepo`.
 you can install in your project via command `xmake install awakelion-logger`, or make builtin integration in `xmake.lua` of your project like:
 ```bash
 -- ...exist codes
+add_repositories("awakelion-xmake-repo https://github.com/AwakeLion-Robot-Lab/awakelion-xmake-repo.git")
 add_requires("awakelion-logger")
 ```
 
