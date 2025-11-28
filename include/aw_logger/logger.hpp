@@ -125,9 +125,11 @@ public:
      * @param appenders multiple appenders to be added
      * @details `std::convertible_to` check whether `UArgs` can be converted to `std::shared_ptr<BaseAppender>`
      */
+    // clang-format off
     template<typename... UArgs>
         requires(std::convertible_to<UArgs, std::shared_ptr<BaseAppender>> && ...)
     void setAppenders(UArgs&&... appenders);
+    // clang-format on
 
     /***
      * @brief remove specific appender from appender list

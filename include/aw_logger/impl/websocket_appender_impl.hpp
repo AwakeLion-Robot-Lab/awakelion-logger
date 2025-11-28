@@ -140,9 +140,11 @@ void WebsocketAppender::init()
     ws_.setPingInterval(ping_interval_);
     ws_.setHandshakeTimeout(handshake_timeout_);
     ws_.enableAutomaticReconnection();
+    // clang-format off
     ws_.setOnMessageCallback(
         std::bind(&WebsocketAppender::on_message, this, std::placeholders::_1)
     );
+    // clang-format on
 }
 
 void aw_logger::WebsocketAppender::connect()

@@ -115,9 +115,11 @@ inline void Logger::setAppender(const std::shared_ptr<BaseAppender>& appender)
     appenders_.emplace_back(appender);
 }
 
+// clang-format off
 template<typename... UArgs>
     requires(std::convertible_to<UArgs, std::shared_ptr<BaseAppender>> && ...)
 void aw_logger::Logger::setAppenders(UArgs&&... appenders)
+// clang-format on
 {
     /* check duplicate first */
     std::vector<std::shared_ptr<BaseAppender>> temp_appenders { std::forward<UArgs>(appenders)... };

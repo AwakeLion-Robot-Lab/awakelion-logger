@@ -140,28 +140,26 @@ A lightweight C++ WebSocket library for real-time log streaming.
 
 ### Requirements
 
-- **C++20 compatible compiler** (GCC 10+, Clang 10+, or MSVC 2019+)
-- **[xmake](https://xmake.io/) 2.9.8+** (recommended build system)
-- **GoogleTest** (only for tests - auto-downloaded by xmake)
+- gcc 13+
+- [xmake](https://xmake.io/) 2.9.8+
 
 ### Quick Setup with xmake
 
-**Why xmake?**
-- ✅ **Zero git submodules** - dependencies auto-downloaded
-- ✅ **One-line setup** - configure, build, test
-- ✅ **Auto package management** - handles IXWebSocket, GoogleTest
-- ✅ **Cross-platform** with unified behavior
+this project is built via `xmake`, manage via `xrepo`.
 
-#### 1. Clone the repository
+#### For xmake Direct Users (Recommended)
+you can install in your project via command `xmake install awakelion-logger`, or make builtin integration in `xmake.lua` of your project like:
+```bash
+-- ...exist codes
+add_requires("awakelion-logger")
+```
+
+#### For xmake Source Coders
 
 ```bash
 git clone https://github.com/AwakeLion-Robot-Lab/awakelion-logger.git
 cd awakelion-logger
-```
 
-#### 2. Build and test (optional)
-
-```bash
 # download requirement
 sudo apt install -y libssl-dev
 xmake build -y
@@ -171,14 +169,11 @@ xmake f --test=y -m release -y
 xmake test
 ```
 
-#### For CMake Users
+#### For cmake Users
 
-If you prefer CMake, xmake can generate `CMakeLists.txt` for you:
+If you prefer cmake, just follow the normal way within prebuild `CMakeLists.txt`:
 
 ```bash
-# generate CMakeLists.txt from xmake.lua
-xmake project -k cmakelists
-
 # make and test file
 mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
@@ -187,7 +182,8 @@ make -j<nproc-num>
 ctest --output-on-failure
 ```
 
-This approach ensures you always have an up-to-date CMakeLists.txt without manually maintaining two build systems!
+> [!NOTE]
+> you can auto-update `CMakeLists.txt` within xmake command `xmake project -k cmakelists`.
 
 And you just make it! Now just include in your C++ files like below:
 

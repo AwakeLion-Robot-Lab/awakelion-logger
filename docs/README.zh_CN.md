@@ -137,47 +137,44 @@ buffer_ = allocator_trait::allocate(alloc_, r_capacity);
 
 ## 安装
 
+> Awakelion-Logger 是一个 **header-only 库**。只需包含头文件并配置 JSON 文件即可 - 无需编译！
+
 ### 安装需求
 
-- **C++20 兼容编译器**（GCC 10+、Clang 10+ 或 MSVC 2019+）
-- **[xmake](https://xmake.io/zh-cn/) 2.9.8+**（推荐的构建系统）
-- **GoogleTest**（仅用于测试 - xmake 自动下载）
+- gcc 13+
+- [xmake](https://xmake.io/zh-cn/) 2.9.8+
 
 ### 使用xmake快速设置
 
-**为什么选择xmake**
-- ✅ **零 git 子模块** - 依赖自动下载
-- ✅ **一行命令** - 配置、构建、测试
-- ✅ **自动包管理** - 处理 IXWebSocket、GoogleTest
-- ✅ **跨平台** 统一行为
+本项目通过 `xmake` 构建，并通过 `xrepo` 管理。
 
-#### 1. 克隆仓库
+#### 对于 xmake 直接用户（推荐）
+你可以通过命令 `xmake install awakelion-logger` 安装到你的项目中，或者在你的项目的 `xmake.lua` 中进行内置集成，如下所示：
+```bash
+-- ...exist codes
+add_requires("awakelion-logger")
+```
+
+#### 对于 xmake 源码开发者
 
 ```bash
 git clone https://github.com/AwakeLion-Robot-Lab/awakelion-logger.git
 cd awakelion-logger
-```
 
-#### 2. 构建和测试（可选）
-
-```bash
 # 下载依赖
 sudo apt install -y libssl-dev
 xmake build -y
 
-# 启用测试配置并运行测试（可选）
+# 构建并运行测试（可选）
 xmake f --test=y -m release -y
 xmake test
 ```
 
-#### CMake方案
+#### CMake 用户
 
-如果你更喜欢 CMake，xmake 可以为你生成 `CMakeLists.txt`：
+如果你更喜欢 CMake，只需按照预构建的 `CMakeLists.txt` 中的常规方式进行操作：
 
 ```bash
-# 从 xmake.lua 生成 CMakeLists.txt
-xmake project -k cmakelists
-
 # 编译以及测试
 mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
@@ -186,7 +183,14 @@ make -j<nproc-num>
 ctest --output-on-failure
 ```
 
-这种方式确保你始终拥有最新的 CMakeLists.txt，而无需手动维护两套构建系统！
+> [!NOTE]
+> 你可以通过 xmake 命令 `xmake project -k cmakelists` 自动更新 `CMakeLists.txt`。
+
+现在你已经完成了！只需在你的 C++ 文件中包含如下内容：
+
+```cpp
+#include "aw_logger/aw_logger.hpp"
+```
 
 ### 快速入门示例
 
@@ -266,10 +270,10 @@ int main() {
 ## TODO
 
 - [X] 支持用于管理组件注册的 `ComponentFactory` 类。 @done(25-10-11 23:19)
-- [X] 支持 `LoggerManager` 单例类以在多线程中管理日志记录器。 @done(25-10-11 23:19)
-- [X] 支持 WebSocket 实时监控日志信息，考虑使用 [IXWebSocket](https://github.com/machinezone/IXWebSocket.git)。 @started(25-10-15 03:33) @high @done(25-10-29 22:40)
-- [X] 处理环形缓冲区负载测试和附加器延迟测试。 @started(25-10-11 23:19) @high @done(25-10-18 00:08) @lasted(6d49m31s) @lasted(5w2d20h26m48s)
-- [X] 在 `ComponentFactory` 类中支持 `%` 作为格式说明符。 @low
+- [X] 支持 `LoggerManager` 单例类以在多线程中管理日志记录器。 @started(25-10-11 23:19) @done(25-10-12 22:35)
+- [X] 支持 WebSocket 实时监控日志信息，考虑使用 [IXWebSocket](https://github.com/machinezone/IXWebSocket)。 @started(25-10-15 03:33) @high @done(25-11-21 23:59) @lasted(5w2d20h26m48s)
+- [X] 处理环形缓冲区负载测试和附加器延迟测试。 @started(25-10-11 23:19) @high @done(25-10-18 00:08) @lasted(6d49m31s)
+- [X] 在 `ComponentFactory` 类中支持 `%` 作为格式说明符。 @low @done(25-10-29 22:40)
 - [X] 在负载测试后，考虑支持双环形缓冲区以减少锁的颗粒度。 @low @done(25-10-18 03:02) [siyiya]: 目前暂时不需要。
 - [X] 支持 C++ 服务器的格式化器，包括上传 ANSI 颜色和格式解析，就像 `Formatter` 类一样。 @low @done(25-11-23 20:33)
 - [ ] 支持基于 `Flask` 的 Python 服务器。 @low

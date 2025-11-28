@@ -43,6 +43,7 @@ WebSocketServer::~WebSocketServer()
 
 void WebSocketServer::run()
 {
+    // clang-format off
     wss_.setOnClientMessageCallback(
         std::bind(
             &WebSocketServer::on_client_message,
@@ -52,6 +53,7 @@ void WebSocketServer::run()
             std::placeholders::_3
         )
     );
+    // clang-format on
 
     auto [res, err_msg] = wss_.listen();
     if (!res)

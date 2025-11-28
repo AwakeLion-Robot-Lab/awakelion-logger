@@ -11,7 +11,7 @@ which is a lightweight, cross-platform build tool based on Lua.
 
 set_project("Awakelion-Logger")
 set_description("A low-latency, high-throughput and few-dependencies logger for `AwakeLion Robot Lab` project.")
-set_version("1.2.0")
+set_version("1.2.3")
 set_xmakever("2.9.8")
 set_license("Apache-2.0")
 
@@ -41,9 +41,9 @@ end
 add_requires("openssl", {system = true})
 add_requires("ixwebsocket v11.4.6")
 
-namespace("aw_logger")
+namespace("fosu-awakelion")
     -- header-only library
-    target("aw_logger_header")
+    target("awakelion-logger")
         set_kind("headeronly")
         add_headerfiles("include/(aw_logger/**.hpp)")
         add_includedirs("include", {public = true})
@@ -54,11 +54,19 @@ namespace("aw_logger")
         add_packages("ixwebsocket", {public = true})
 
         -- configuration
-        set_configvar("SETTINGS_FILE_PATH", path.absolute("config/aw_logger_settings.json"))
+        if has_config("test") then
+        -- local test
+            set_configvar("SETTINGS_FILE_PATH", path.absolute("config/aw_logger_settings.json"))
+        else
+        -- integration install
+            set_configvar("SETTINGS_FILE_PATH", path.join("$(prefix)", "share/aw_logger/aw_logger_settings.json"))
+        end
         add_configfiles("config/settings_path.h.in", {
             filename = "aw_logger/settings_path.h",
             pattern = "@(.-)@"
         })
+        add_headerfiles("$(builddir)/aw_logger/settings_path.h", {prefixdir = "aw_logger"})
+        add_installfiles("config/aw_logger_settings.json", {prefixdir = "share/aw_logger"})
 
         -- check config file
         before_build(function (target)
@@ -69,7 +77,7 @@ namespace("aw_logger")
         end)
 
     -- cpp server
-    target("aw_logger_cpp_server")
+    target("awakelion-logger-cpp-server")
         set_kind("binary")
         set_default(false)
         add_includedirs("server/cpp")
@@ -83,14 +91,14 @@ namespace("aw_logger")
     if has_config("test") then
         for _, file in ipairs(os.files("test/*.cpp")) do
             local name = path.basename(file)
-            target("aw_logger_test_" .. name)
+            target("awakelion-logger-test-" .. name)
                 set_kind("binary")
                 set_default(false)
                 add_files(file)
-                add_deps("aw_logger_header")
+                add_deps("awakelion-logger")
                 add_packages("gtest")
                 set_rundir("$(projectdir)")
-                add_tests("aw_logger_test", {runargs = {"--gtest_color=yes"}})
+                add_tests("awakelion-logger-test", {runargs = {"--gtest_color=yes"}})
 
                 -- enable the following on_test function to print test results, but it will increase spent time significantly
                 -- you can check test logs in `build/.gens` instead while use test command `xmake test -vD`
@@ -129,4 +137,4 @@ namespace("aw_logger")
 --]]
         end
     end
-namespace_end() -- namespace aw_logger
+namespace_end() -- namespace awakelion
