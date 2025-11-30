@@ -16,20 +16,71 @@
 #define SETTINGS_PATH_H
 
 // C++ standard library
+#include <cstdlib>
 #include <filesystem>
 #include <string>
 
 inline std::string get_settings_path()
 {
+    const auto try_candidate = [](const std::filesystem::path& candidate) -> std::string {
+        if (!candidate.empty() && std::filesystem::exists(candidate))
+        {
+            return candidate.string();
+        }
+        return {};
+    };
+
+    const auto make_build_share_path = [](const std::filesystem::path& root) {
+        return root / "build/share/aw_logger/aw_logger_settings.json";
+    };
+
+    const auto try_build_root = [&](const std::filesystem::path& root) {
+        return try_candidate(make_build_share_path(root));
+    };
+
+    if (const char* env_path = std::getenv("AW_LOGGER_SETTINGS_PATH"))
+    {
+        if (auto resolved = try_candidate(env_path); !resolved.empty())
+        {
+            return resolved;
+        }
+    }
+
     std::string path_str = "@SETTINGS_FILE_PATH@";
     if (!path_str.empty())
     {
-        return path_str;
+        if (auto resolved = try_candidate(path_str); !resolved.empty())
+        {
+            return resolved;
+        }
     }
-    std::filesystem::path current_file = __FILE__;
-    return (current_file.parent_path().parent_path().parent_path()
-            / "share/aw_logger/aw_logger_settings.json")
-        .string();
+
+    if (auto resolved = try_build_root(std::filesystem::current_path()); !resolved.empty())
+    {
+        return resolved;
+    }
+
+    if (const char* project_dir = std::getenv("XMAKE_PROJECTDIR"))
+    {
+        if (auto resolved = try_build_root(project_dir); !resolved.empty())
+        {
+            return resolved;
+        }
+    }
+
+    std::filesystem::path current_file = std::filesystem::path(__FILE__).lexically_normal();
+    auto probe = current_file.parent_path();
+    constexpr int kMaxDepth = 6;
+    for (int depth = 0; depth < kMaxDepth && !probe.empty(); ++depth)
+    {
+        if (auto resolved = try_build_root(probe); !resolved.empty())
+        {
+            return resolved;
+        }
+        probe = probe.parent_path();
+    }
+
+    return make_build_share_path(current_file.parent_path().parent_path().parent_path()).string();
 }
 
 const std::string SETTINGS_FILE_PATH = get_settings_path();

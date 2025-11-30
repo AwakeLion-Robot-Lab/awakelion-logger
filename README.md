@@ -260,10 +260,10 @@ Performance tests conducted on the following environment:
 |     Metric     |               Value                |
 | :------------: | :--------------------------------: |
 |    Threads     |                 4                  |
-|   Total Logs   |              400,000               |
+|   Total Logs   |       100,000 * 4 = 400,000        |
 |    Log Size    | 130-150 bytes(without `file_name`) |
-|  Average Time  |        3046.2 ms (5 rounds)        |
-| **Throughput** |       **~131,300 logs/sec**        |
+|  Average Time  |        2426.8 ms (5 rounds)        |
+| **Throughput** |       **~164,800 logs/sec**        |
 
 *Note: log size is includes all the format except for the `file_name`*
 

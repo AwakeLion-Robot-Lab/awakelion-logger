@@ -55,26 +55,34 @@ namespace("fosu-awakelion")
         add_packages("ixwebsocket", {public = true})
 
         -- configuration
-        if has_config("test") then
-        -- local test
-            set_configvar("SETTINGS_FILE_PATH", path.absolute("config/aw_logger_settings.json"))
-        else
-        -- integration install
-            set_configvar("SETTINGS_FILE_PATH", "")
-        end
+        set_configvar("SETTINGS_FILE_PATH", "")
         add_configfiles("config/settings_path.h.in", {
             filename = "aw_logger/settings_path.h",
             pattern = "@(.-)@"
         })
         add_headerfiles("$(builddir)/aw_logger/settings_path.h", {prefixdir = "aw_logger"})
-        add_installfiles("config/aw_logger_settings.json", {prefixdir = "share/aw_logger"})
 
         -- check config file
-        before_build(function (target)
-            local config = path.absolute("config/aw_logger_settings.json")
-            if not os.isfile(config) then
-                raise("can not find aw_logger_settings.json: " .. config)
-            end
+        before_build(function ()
+            local config = import("core.project.config")
+            local project_config_dir = path.join(os.projectdir(), "config")
+            local settings_file = path.join(project_config_dir, "aw_logger_settings.json")
+            assert(os.isfile(settings_file), "can not find aw_logger_settings.json: " .. settings_file)
+
+            local build_share_dir = path.absolute(path.join(config.builddir(), "share", "aw_logger"))
+            os.tryrm(build_share_dir)
+            os.mkdir(build_share_dir)
+            os.cp(path.join(project_config_dir, "*"), build_share_dir)
+        end)
+
+        on_install(function (target)
+            local installdir = target:installdir()
+            local project_config_dir = path.join(os.projectdir(), "config")
+            local share_root = path.join(installdir, "share")
+            local share_dir = path.join(share_root, "aw_logger")
+            os.mkdir(share_root)
+            os.mkdir(share_dir)
+            os.cp(path.join(project_config_dir, "*"), share_dir)
         end)
 
     -- cpp server
