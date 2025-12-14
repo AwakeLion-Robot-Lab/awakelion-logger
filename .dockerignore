@@ -1,0 +1,14 @@
+# Xmake files
+.xmake/
+
+# Build files
+build/
+
+# Vscode setting files
+.vscode/
+
+# Virtual environment
+.venv/
+
+# Node modules
+viewer/node_modules/

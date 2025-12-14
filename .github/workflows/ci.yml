@@ -1,0 +1,41 @@
+name: build-and-test
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+env:
+    CTEST_OUTPUT_ON_FAILURE: 1
+
+jobs:
+    build-ubuntu:
+        runs-on: ${{ matrix.os }}
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [ubuntu-24.04]
+                build_type: [Release, Debug]
+                compiler: [{ "cc": "gcc", "cxx": "g++" }]
+        env:
+            CC: ${{ matrix.compiler.cc }}
+            CXX: ${{ matrix.compiler.cxx }}
+        steps:
+            - name: checkout
+              uses: actions/checkout@v5
+              with:
+                  # get all the branches and tags
+                  fetch-depth: 0
+                  persist-credentials: false
+            - name: setup
+              run: |
+                  sudo apt update
+                  sudo apt install -y libssl-dev
+                  bash <(curl -fsSL https://raw.githubusercontent.com/tboox/xmake/master/scripts/get.sh)
+
+            - name: build and test
+              run: |
+                  xmake build -y
+                  xmake f --test=y -m release -y
+                  xmake test
