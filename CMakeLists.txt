@@ -6,68 +6,196 @@ cmake_minimum_required(VERSION 3.15.0)
 cmake_policy(SET CMP0091 NEW)
 project(
   Awakelion-Logger
-  VERSION 1.2.3
+  VERSION 1.0.0
   LANGUAGES CXX)
 set(CURRENT_COMPILER_ID ${CMAKE_CXX_COMPILER_ID})
 
 # target
-add_executable(aw_logger_cpp_server "")
-set_target_properties(aw_logger_cpp_server PROPERTIES OUTPUT_NAME
-                                                      "aw_logger_cpp_server")
+add_library(awakelion-logger INTERFACE)
+target_include_directories(awakelion-logger INTERFACE include include/3rdparty)
+target_include_directories(awakelion-logger INTERFACE include include/3rdparty)
+# target
+add_executable(awakelion-logger-cpp-server "")
+set_target_properties(awakelion-logger-cpp-server
+                      PROPERTIES OUTPUT_NAME "awakelion-logger-cpp-server")
 set_target_properties(
-  aw_logger_cpp_server
+  awakelion-logger-cpp-server
   PROPERTIES RUNTIME_OUTPUT_DIRECTORY
-             "${CMAKE_SOURCE_DIR}/build/linux/arm64/release/aw_logger")
-target_include_directories(aw_logger_cpp_server PRIVATE server/cpp
-                                                        include/3rdparty)
-target_include_directories(aw_logger_cpp_server INTERFACE include/3rdparty)
+             "${CMAKE_SOURCE_DIR}/build/linux/arm64/debug/fosu-awakelion")
+target_include_directories(awakelion-logger-cpp-server PRIVATE server/cpp
+                                                               include/3rdparty)
+target_include_directories(awakelion-logger-cpp-server
+                           INTERFACE include/3rdparty)
 target_include_directories(
-  aw_logger_cpp_server SYSTEM
+  awakelion-logger-cpp-server SYSTEM
   PRIVATE
     /home/siyiya/.xmake/packages/i/ixwebsocket/v11.4.6/b45fa6c70e3e4d28b082e7bde24c133a/include
 )
 target_compile_options(
-  aw_logger_cpp_server
-  PRIVATE $<$<COMPILE_LANGUAGE:C>:-march=native>
-          $<$<COMPILE_LANGUAGE:CXX>:-march=native>
-          $<$<COMPILE_LANGUAGE:C>:-w>
-          $<$<COMPILE_LANGUAGE:CXX>:-w>
-          $<$<COMPILE_LANGUAGE:C>:-DNDEBUG>
-          $<$<COMPILE_LANGUAGE:CXX>:-DNDEBUG>
-          $<$<COMPILE_LANGUAGE:CUDA>:-DNDEBUG>)
-set_target_properties(aw_logger_cpp_server PROPERTIES C_EXTENSIONS OFF)
-target_compile_features(aw_logger_cpp_server PRIVATE c_std_11)
-set_target_properties(aw_logger_cpp_server PROPERTIES CXX_EXTENSIONS OFF)
-target_compile_features(aw_logger_cpp_server PRIVATE cxx_std_20)
+  awakelion-logger-cpp-server
+  PRIVATE $<$<COMPILE_LANGUAGE:C>:-g> $<$<COMPILE_LANGUAGE:CXX>:-g>
+          $<$<COMPILE_LANGUAGE:CUDA>:-G>)
+set_target_properties(awakelion-logger-cpp-server PROPERTIES C_EXTENSIONS OFF)
+target_compile_features(awakelion-logger-cpp-server PRIVATE c_std_11)
+set_target_properties(awakelion-logger-cpp-server PROPERTIES CXX_EXTENSIONS OFF)
+target_compile_features(awakelion-logger-cpp-server PRIVATE cxx_std_20)
 if(CURRENT_COMPILER_ID STREQUAL "MSVC")
-  target_compile_options(aw_logger_cpp_server PRIVATE $<$<CONFIG:Release>:-O2>)
+  target_compile_options(awakelion-logger-cpp-server
+                         PRIVATE $<$<CONFIG:Debug>:-Od>)
 else()
-  target_compile_options(aw_logger_cpp_server PRIVATE -O3)
+  target_compile_options(awakelion-logger-cpp-server PRIVATE -O0)
 endif()
 if(CURRENT_COMPILER_ID STREQUAL "MSVC")
-
+  target_compile_options(awakelion-logger-cpp-server PRIVATE -Zi)
 else()
-  target_compile_options(aw_logger_cpp_server PRIVATE -fvisibility=hidden)
+  target_compile_options(awakelion-logger-cpp-server PRIVATE -g)
 endif()
 if(CURRENT_COMPILER_ID STREQUAL "MSVC")
   set_property(
-    TARGET aw_logger_cpp_server
+    TARGET awakelion-logger-cpp-server
     PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
-target_link_libraries(aw_logger_cpp_server PRIVATE ixwebsocket z ssl crypto
-                                                   pthread)
+target_link_libraries(awakelion-logger-cpp-server PRIVATE ixwebsocket z ssl
+                                                          crypto pthread)
 target_link_directories(
-  aw_logger_cpp_server
+  awakelion-logger-cpp-server
   PRIVATE
   /home/siyiya/.xmake/packages/i/ixwebsocket/v11.4.6/b45fa6c70e3e4d28b082e7bde24c133a/lib
 )
 # private sourcefiles from sourcebatch c++.build for target
-# aw_logger::aw_logger_cpp_server
-target_sources(aw_logger_cpp_server PRIVATE server/cpp/websocket_server.cpp)
+# fosu-awakelion::awakelion-logger-cpp-server
+target_sources(awakelion-logger-cpp-server
+               PRIVATE server/cpp/websocket_server.cpp)
 
 # target
-add_library(aw_logger_header INTERFACE)
-target_include_directories(aw_logger_header INTERFACE include include/3rdparty
-                                                      build)
-target_include_directories(aw_logger_header INTERFACE include include/3rdparty
-                                                      build)
+add_executable(awakelion-logger-test-hello_aw_logger "")
+set_target_properties(
+  awakelion-logger-test-hello_aw_logger
+  PROPERTIES OUTPUT_NAME "awakelion-logger-test-hello_aw_logger")
+set_target_properties(
+  awakelion-logger-test-hello_aw_logger
+  PROPERTIES RUNTIME_OUTPUT_DIRECTORY
+             "${CMAKE_SOURCE_DIR}/build/linux/arm64/debug/fosu-awakelion")
+add_dependencies(awakelion-logger-test-hello_aw_logger awakelion-logger)
+target_include_directories(awakelion-logger-test-hello_aw_logger
+                           PRIVATE include include/3rdparty)
+target_include_directories(
+  awakelion-logger-test-hello_aw_logger SYSTEM
+  PRIVATE
+    /home/siyiya/.xmake/packages/g/gtest/v1.17.0/2284963765504122b5a2826abe0cf7a2/include
+    /home/siyiya/.xmake/packages/i/ixwebsocket/v11.4.6/b45fa6c70e3e4d28b082e7bde24c133a/include
+)
+target_compile_options(
+  awakelion-logger-test-hello_aw_logger
+  PRIVATE $<$<COMPILE_LANGUAGE:C>:-g> $<$<COMPILE_LANGUAGE:CXX>:-g>
+          $<$<COMPILE_LANGUAGE:CUDA>:-G>)
+set_target_properties(awakelion-logger-test-hello_aw_logger
+                      PROPERTIES C_EXTENSIONS OFF)
+target_compile_features(awakelion-logger-test-hello_aw_logger PRIVATE c_std_11)
+set_target_properties(awakelion-logger-test-hello_aw_logger
+                      PROPERTIES CXX_EXTENSIONS OFF)
+target_compile_features(awakelion-logger-test-hello_aw_logger
+                        PRIVATE cxx_std_20)
+if(CURRENT_COMPILER_ID STREQUAL "MSVC")
+  target_compile_options(awakelion-logger-test-hello_aw_logger
+                         PRIVATE $<$<CONFIG:Debug>:-Od>)
+else()
+  target_compile_options(awakelion-logger-test-hello_aw_logger PRIVATE -O0)
+endif()
+if(CURRENT_COMPILER_ID STREQUAL "MSVC")
+  target_compile_options(awakelion-logger-test-hello_aw_logger PRIVATE -Zi)
+else()
+  target_compile_options(awakelion-logger-test-hello_aw_logger PRIVATE -g)
+endif()
+if(CURRENT_COMPILER_ID STREQUAL "MSVC")
+  set_property(
+    TARGET awakelion-logger-test-hello_aw_logger
+    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+target_link_libraries(
+  awakelion-logger-test-hello_aw_logger
+  PRIVATE gmock_main
+          gtest_main
+          gtest
+          gmock
+          ixwebsocket
+          z
+          ssl
+          crypto
+          pthread)
+target_link_directories(
+  awakelion-logger-test-hello_aw_logger
+  PRIVATE
+  /home/siyiya/.xmake/packages/g/gtest/v1.17.0/2284963765504122b5a2826abe0cf7a2/lib
+  /home/siyiya/.xmake/packages/i/ixwebsocket/v11.4.6/b45fa6c70e3e4d28b082e7bde24c133a/lib
+)
+# private sourcefiles from sourcebatch c++.build for target
+# fosu-awakelion::awakelion-logger-test-hello_aw_logger
+target_sources(awakelion-logger-test-hello_aw_logger
+               PRIVATE test/hello_aw_logger.cpp)
+
+# target
+add_executable(awakelion-logger-test-load_benchmark "")
+set_target_properties(
+  awakelion-logger-test-load_benchmark
+  PROPERTIES OUTPUT_NAME "awakelion-logger-test-load_benchmark")
+set_target_properties(
+  awakelion-logger-test-load_benchmark
+  PROPERTIES RUNTIME_OUTPUT_DIRECTORY
+             "${CMAKE_SOURCE_DIR}/build/linux/arm64/debug/fosu-awakelion")
+add_dependencies(awakelion-logger-test-load_benchmark awakelion-logger)
+target_include_directories(awakelion-logger-test-load_benchmark
+                           PRIVATE include include/3rdparty)
+target_include_directories(
+  awakelion-logger-test-load_benchmark SYSTEM
+  PRIVATE
+    /home/siyiya/.xmake/packages/g/gtest/v1.17.0/2284963765504122b5a2826abe0cf7a2/include
+    /home/siyiya/.xmake/packages/i/ixwebsocket/v11.4.6/b45fa6c70e3e4d28b082e7bde24c133a/include
+)
+target_compile_options(
+  awakelion-logger-test-load_benchmark
+  PRIVATE $<$<COMPILE_LANGUAGE:C>:-g> $<$<COMPILE_LANGUAGE:CXX>:-g>
+          $<$<COMPILE_LANGUAGE:CUDA>:-G>)
+set_target_properties(awakelion-logger-test-load_benchmark
+                      PROPERTIES C_EXTENSIONS OFF)
+target_compile_features(awakelion-logger-test-load_benchmark PRIVATE c_std_11)
+set_target_properties(awakelion-logger-test-load_benchmark
+                      PROPERTIES CXX_EXTENSIONS OFF)
+target_compile_features(awakelion-logger-test-load_benchmark PRIVATE cxx_std_20)
+if(CURRENT_COMPILER_ID STREQUAL "MSVC")
+  target_compile_options(awakelion-logger-test-load_benchmark
+                         PRIVATE $<$<CONFIG:Debug>:-Od>)
+else()
+  target_compile_options(awakelion-logger-test-load_benchmark PRIVATE -O0)
+endif()
+if(CURRENT_COMPILER_ID STREQUAL "MSVC")
+  target_compile_options(awakelion-logger-test-load_benchmark PRIVATE -Zi)
+else()
+  target_compile_options(awakelion-logger-test-load_benchmark PRIVATE -g)
+endif()
+if(CURRENT_COMPILER_ID STREQUAL "MSVC")
+  set_property(
+    TARGET awakelion-logger-test-load_benchmark
+    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+target_link_libraries(
+  awakelion-logger-test-load_benchmark
+  PRIVATE gmock_main
+          gtest_main
+          gtest
+          gmock
+          ixwebsocket
+          z
+          ssl
+          crypto
+          pthread)
+target_link_directories(
+  awakelion-logger-test-load_benchmark
+  PRIVATE
+  /home/siyiya/.xmake/packages/g/gtest/v1.17.0/2284963765504122b5a2826abe0cf7a2/lib
+  /home/siyiya/.xmake/packages/i/ixwebsocket/v11.4.6/b45fa6c70e3e4d28b082e7bde24c133a/lib
+)
+# private sourcefiles from sourcebatch c++.build for target
+# fosu-awakelion::awakelion-logger-test-load_benchmark
+target_sources(awakelion-logger-test-load_benchmark
+               PRIVATE test/load_benchmark.cpp)

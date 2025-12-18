@@ -59,15 +59,11 @@ WebsocketAppender::WebsocketAppender(
 
 aw_logger::WebsocketAppender::~WebsocketAppender()
 {
-    bool expected = true;
-    if (!connected_.compare_exchange_strong(expected, false))
-        return;
-
-    {
-        /* as a barrier to make sure no sending during stopping */
-        std::lock_guard<std::mutex> ws_lk(ws_mtx_);
-    }
+    connected_.store(false, std::memory_order_relaxed);
+    std::lock_guard<std::mutex> ws_lk(ws_mtx_);
+    ws_.disableAutomaticReconnection();
     ws_.stop();
+    ws_.close();
 }
 
 void aw_logger::WebsocketAppender::append(const LogEvent::Ptr& event)

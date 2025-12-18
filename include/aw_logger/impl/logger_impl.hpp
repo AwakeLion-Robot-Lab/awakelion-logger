@@ -319,7 +319,24 @@ inline void LoggerManager::init()
 
 inline void LoggerManager::destroy()
 {
-    loggers_map_.clear();
+    /* swap out state under lock, then shut down loggers without holding the mutex */
+    decltype(loggers_map_) local_map;
+    Logger::Ptr local_root;
+
+    {
+        std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
+        local_map.swap(loggers_map_);
+        local_root.swap(root_logger_);
+    }
+
+    for (auto& [name, logger]: local_map)
+    {
+        if (logger)
+        {
+            logger->flush();
+            logger->stop();
+        }
+    }
 }
 
 } // namespace aw_logger

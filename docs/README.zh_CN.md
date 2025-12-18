@@ -268,6 +268,52 @@ int main() {
 
 *注意：基准测试的log除了 `file_name` 外，其余组件全部格式化*
 
+#### `Valgrind`内存泄漏测试
+
+`hello_aw_logger`的测试报告：
+
+```bash
+==53296== Memcheck, a memory error detector
+==53296== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.
+==53296== Using Valgrind-3.18.1 and LibVEX; rerun with -h for copyright info
+==53296== Command: ./build/linux/arm64/debug/fosu-awakelion/awakelion-logger-test-hello_aw_logger
+==53296== Parent PID: 21910
+==53296==
+==53296== Warning: invalid file descriptor -1 in syscall read()
+==53296== Warning: invalid file descriptor -1 in syscall read()
+==53296==
+==53296== HEAP SUMMARY:
+==53296==     in use at exit: 0 bytes in 0 blocks
+==53296==   total heap usage: 66,936 allocs, 66,936 frees, 6,521,737 bytes allocated
+==53296==
+==53296== All heap blocks were freed -- no leaks are possible
+==53296==
+==53296== For lists of detected and suppressed errors, rerun with: -s
+==53296== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+```
+
+`load_benchmark`的测试报告：
+
+```bash
+==61077== Memcheck, a memory error detector
+==61077== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.
+==61077== Using Valgrind-3.18.1 and LibVEX; rerun with -h for copyright info
+==61077== Command: ./build/linux/arm64/debug/fosu-awakelion/awakelion-logger-test-load_benchmark
+==61077== Parent PID: 21910
+==61077==
+==61077==
+==61077== HEAP SUMMARY:
+==61077==     in use at exit: 0 bytes in 0 blocks
+==61077==   total heap usage: 2,345,651 allocs, 2,345,651 frees, 243,733,771 bytes allocated
+==61077==
+==61077== All heap blocks were freed -- no leaks are possible
+==61077==
+==61077== For lists of detected and suppressed errors, rerun with: -s
+==61077== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+```
+
+嗯......这看起来确实没有内存泄漏，如果你的测试结果跟我的不一样，请发PR,有时间的话我会修改的！
+
 ## TODO
 
 - [X] 支持用于管理组件注册的 `ComponentFactory` 类。 @done(25-10-11 23:19)

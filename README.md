@@ -267,6 +267,52 @@ Performance tests conducted on the following environment:
 
 *Note: log size is includes all the format except for the `file_name`*
 
+#### `Valgrind` Memory Leak Test
+
+test report for `hello_aw_logger`:
+
+```bash
+==53296== Memcheck, a memory error detector
+==53296== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.
+==53296== Using Valgrind-3.18.1 and LibVEX; rerun with -h for copyright info
+==53296== Command: ./build/linux/arm64/debug/fosu-awakelion/awakelion-logger-test-hello_aw_logger
+==53296== Parent PID: 21910
+==53296==
+==53296== Warning: invalid file descriptor -1 in syscall read()
+==53296== Warning: invalid file descriptor -1 in syscall read()
+==53296==
+==53296== HEAP SUMMARY:
+==53296==     in use at exit: 0 bytes in 0 blocks
+==53296==   total heap usage: 66,936 allocs, 66,936 frees, 6,521,737 bytes allocated
+==53296==
+==53296== All heap blocks were freed -- no leaks are possible
+==53296==
+==53296== For lists of detected and suppressed errors, rerun with: -s
+==53296== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+```
+
+test report for `load_benchmark`:
+
+```bash
+==61077== Memcheck, a memory error detector
+==61077== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.
+==61077== Using Valgrind-3.18.1 and LibVEX; rerun with -h for copyright info
+==61077== Command: ./build/linux/arm64/debug/fosu-awakelion/awakelion-logger-test-load_benchmark
+==61077== Parent PID: 21910
+==61077==
+==61077==
+==61077== HEAP SUMMARY:
+==61077==     in use at exit: 0 bytes in 0 blocks
+==61077==   total heap usage: 2,345,651 allocs, 2,345,651 frees, 243,733,771 bytes allocated
+==61077==
+==61077== All heap blocks were freed -- no leaks are possible
+==61077==
+==61077== For lists of detected and suppressed errors, rerun with: -s
+==61077== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+```
+
+it's seemed that no memory leak at all, if your outcome is opposite to mine, please send PR and I will check it out when I'm free!
+
 ## TODO
 
 - [X] support `ComponentFactory` class which is used to manage component registration. @done(25-10-11 23:19)

@@ -158,6 +158,16 @@ public:
         return name_;
     }
 
+    /***
+     * @brief start to run worker thread
+     */
+    void start();
+
+    /***
+     * @brief stop running worker thread
+     */
+    void stop();
+
 private:
     /***
      * @brief binded root logger
@@ -230,16 +240,6 @@ private:
      * @brief logger name
      */
     std::string name_;
-
-    /***
-     * @brief start to run worker thread
-     */
-    void start();
-
-    /***
-     * @brief stop running worker thread
-     */
-    void stop();
 };
 
 /***

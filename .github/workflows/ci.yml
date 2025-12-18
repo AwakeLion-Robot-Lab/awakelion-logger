@@ -16,7 +16,7 @@ jobs:
             fail-fast: false
             matrix:
                 os: [ubuntu-24.04]
-                build_type: [Release, Debug]
+                build_type: [release, debug]
                 compiler: [{ "cc": "gcc", "cxx": "g++" }]
         env:
             CC: ${{ matrix.compiler.cc }}
@@ -36,6 +36,6 @@ jobs:
 
             - name: build and test
               run: |
+                  xmake f --test=y -m ${{ matrix.build_type }} -y
                   xmake build -y
-                  xmake f --test=y -m release -y
                   xmake test
