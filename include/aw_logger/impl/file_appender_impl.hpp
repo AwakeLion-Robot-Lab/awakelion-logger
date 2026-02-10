@@ -45,6 +45,7 @@ inline FileAppender::FileAppender(
         file_size_ = std::filesystem::file_size(file_path_);
 
     open(is_trunc_);
+    enableColor(false);
 }
 
 inline FileAppender::FileAppender(
@@ -67,6 +68,7 @@ inline FileAppender::FileAppender(
         file_size_ = std::filesystem::file_size(file_path_);
 
     open(is_trunc_);
+    enableColor(false);
 }
 
 inline FileAppender::~FileAppender()

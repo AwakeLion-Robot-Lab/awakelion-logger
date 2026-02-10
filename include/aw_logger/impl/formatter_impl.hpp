@@ -41,12 +41,8 @@ inline void ComponentFactory::registerComponents(const nlohmann::json& json)
         if (component["enabled"].get<bool>())
         {
             const auto& type = component["type"];
-            /* color */
-            if (type == "color")
-                registered_components_.push_back({ "color", component["level_colors"].dump() });
-
             /* timestamp */
-            else if (type == "timestamp")
+            if (type == "timestamp")
                 registered_components_.push_back({ "timestamp", "" });
 
             /* level */
@@ -178,7 +174,36 @@ void ComponentFactory::parsePattern(std::string_view pattern)
     }
 }
 
-inline Formatter::Formatter(ComponentFactory::Ptr factory): factory_(std::move(factory)) {}
+inline Formatter::Formatter(ComponentFactory::Ptr factory):
+    factory_(std::move(factory)),
+    color_enabled_(true)
+{
+    resetLevelColors();
+}
+
+inline void Formatter::resetLevelColors()
+{
+    level_color_codes_.fill(formatColor("white"));
+
+    static constexpr std::array<std::pair<LogLevel::level, std::string_view>, 6> defaults = {
+        std::pair { LogLevel::level::DEBUG, "white" },
+        std::pair { LogLevel::level::INFO, "cyan" },
+        std::pair { LogLevel::level::NOTICE, "blue" },
+        std::pair { LogLevel::level::WARN, "yellow" },
+        std::pair { LogLevel::level::ERROR, "red" },
+        std::pair { LogLevel::level::FATAL, "magenta" },
+    };
+
+    for (const auto& [lvl, name]: defaults)
+    {
+        setLevelColor(lvl, name);
+    }
+}
+
+inline void Formatter::setLevelColor(LogLevel::level level, std::string_view color_name)
+{
+    level_color_codes_[levelToIndex(level)] = formatColor(color_name);
+}
 
 std::string Formatter::formatComponents(
     const LogEvent::Ptr& event,
@@ -192,30 +217,10 @@ std::string Formatter::formatComponents(
     std::string result;
     result.reserve(event->getMsg().size() + 256);
 
-    /* pre-scan to find color settings */
-    std::string color_code;
-    for (const auto& [type, format]: components)
-    {
-        if (type == "color")
-        {
-            const auto level_colors = nlohmann::json::parse(format);
-            std::string level_str = event->getLogLevelString();
-
-            /* convert to lowercase for JSON key-value pair matching */
-            std::transform(level_str.begin(), level_str.end(), level_str.begin(), ::tolower);
-
-            if (level_colors.contains(level_str))
-            {
-                color_code = formatColor(level_colors[level_str].get<std::string>());
-            }
-            break;
-        }
-    }
-
     try
     {
-        /* if has color code, just format level and log message */
-        const bool is_has_color_code = !color_code.empty();
+        const std::string& color_code = colorForLevel(event->getLogLevel());
+        const bool is_has_color_code = color_enabled_ && !color_code.empty();
 
         for (const auto& [type, format]: components)
         {
@@ -226,14 +231,12 @@ std::string Formatter::formatComponents(
             else if (type == "level")
             {
                 if (is_has_color_code)
-                {
                     result += color_code;
-                }
+
                 result += formatLevel(event);
+
                 if (is_has_color_code)
-                {
                     result += aw_logger::Color::endColor;
-                }
             }
             else if (type == "tid")
             {
@@ -246,14 +249,12 @@ std::string Formatter::formatComponents(
             else if (type == "msg")
             {
                 if (is_has_color_code)
-                {
                     result += color_code;
-                }
+
                 result += formatMsg(event);
+
                 if (is_has_color_code)
-                {
                     result += aw_logger::Color::endColor;
-                }
             }
             else if (type == "text")
             {

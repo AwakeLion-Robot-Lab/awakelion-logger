@@ -53,17 +53,6 @@ namespace("fosu-awakelion")
         -- dependencies
         add_packages("ixwebsocket", {public = true})
 
-    -- cpp server
-    target("awakelion-logger-cpp-server")
-        set_kind("binary")
-        set_default(false)
-        add_includedirs("server/cpp")
-        add_includedirs("include/3rdparty", {public = true})
-        add_files("server/cpp/*.cpp")
-
-        -- dependencies
-        add_packages("ixwebsocket", {public = true})
-
     -- test
     if has_config("test") then
         for _, file in ipairs(os.files("test/*.cpp")) do
@@ -76,42 +65,6 @@ namespace("fosu-awakelion")
                 add_packages("gtest")
                 set_rundir("$(projectdir)")
                 add_tests("awakelion-logger-test", {runargs = {"--gtest_color=yes"}})
-
-                -- enable the following on_test function to print test results, but it will increase spent time significantly
-                -- you can check test logs in `build/.gens` instead while use test command `xmake test -vD`
-
---[[
-                on_test(function (target, opt) -- for printing test results
-                    cprint("${bright cyan}========================================${clear}")
-                    cprint("${bright cyan}[Running]${clear} %s", target:name())
-                    cprint("${bright cyan}========================================${clear}")
-
-                    local targetfile = target:targetfile()
-                    local runargs = opt.runargs
-
-                    local outdata, errdata = os.iorunv(targetfile, runargs)
-
-                    if outdata then
-                        print(outdata)
-                    end
-                    if errdata and #errdata > 0 then
-                        cprint("${bright yellow}%s${clear}", errdata)
-                    end
-
-                    local ok = os.execv(targetfile, runargs)
-
-                    cprint("${bright cyan}========================================${clear}")
-                    if ok == 0 then
-                        cprint("${bright green}✓ [PASSED]${clear} %s", target:name())
-                        cprint("${bright cyan}========================================${clear}\n")
-                        return true
-                    else
-                        cprint("${bright red}✗ [FAILED]${clear} %s (exit code: %d)", target:name(), ok)
-                        cprint("${bright cyan}========================================${clear}\n")
-                        return false, error
-                    end
-                end)
---]]
         end
     end
 namespace_end() -- namespace fosu-awakelion

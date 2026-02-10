@@ -209,6 +209,33 @@ int main() {
 }
 ```
 
+#### Color Control
+
+Colors are precomputed in the formatter; you can customize or disable them per appender:
+
+```cpp
+// customize level colors and keep console colorized
+auto factory = std::make_unique<aw_logger::ComponentFactory>();
+auto formatter = std::make_unique<aw_logger::Formatter>(std::move(factory));
+formatter->setLevelColor(aw_logger::LogLevel::level::INFO, "cyan");
+formatter->setLevelColor(aw_logger::LogLevel::level::WARN, "orange");
+formatter->setDebugColor("violet");
+
+auto console_appender = std::make_shared<aw_logger::ConsoleAppender>(std::move(formatter));
+console_appender->enableColor(true);
+
+auto logger = aw_logger::getLogger("colorful");
+logger->setAppender(console_appender);
+
+AW_LOG_INFO(logger, "Info is cyan");
+AW_LOG_WARN(logger, "Warn is orange");
+AW_LOG_DEBUG(logger, "Debug is violet");
+
+// file appender defaults to no ANSI color; you can also enforce disable
+auto file_appender = std::make_shared<aw_logger::FileAppender>("logs/app.log");
+file_appender->enableColor(false);
+```
+
 #### Custom Pattern Format
 
 You can customize the log output format using pattern strings. Here are the available format specifiers:
@@ -322,4 +349,3 @@ it's seemed that no memory leak at all, if your outcome is opposite to mine, ple
 - [X] support `%` as format specifier in `ComponentFactory` class. @low @done(25-10-29 22:40)
 - [X] after load test, consider to support double ringbuffer to reduce lock time. @low @done(25-10-18 03:02) [siyiya]: no need for now.
 - [X] support formatter on cpp server, including uploading ANSI color and parse patterns like `Formatter` class. @low @done(25-11-23 20:33)
-- [ ] support python server via `Flask`. @low

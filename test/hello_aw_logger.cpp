@@ -279,6 +279,28 @@ TEST(HelloAWLogger, CustomPatternParsing)
     SUCCEED();
 }
 
+TEST(HelloAWLogger, ColorControl)
+{
+    auto factory = std::make_unique<aw_logger::ComponentFactory>();
+    auto formatter = std::make_unique<aw_logger::Formatter>(std::move(factory));
+    formatter->setLevelColor(aw_logger::LogLevel::level::INFO, "cyan");
+    formatter->setLevelColor(aw_logger::LogLevel::level::WARN, "orange");
+    /* you can set specific level like below */
+    formatter->setDebugColor("violet");
+
+    auto console_appender = std::make_shared<aw_logger::ConsoleAppender>(std::move(formatter));
+    console_appender->enableColor(true);
+
+    auto logger = aw_logger::getLogger("colorful_test");
+    logger->setAppender(console_appender);
+
+    EXPECT_NO_THROW(AW_LOG_INFO(logger, "INFO should be cyan"));
+    EXPECT_NO_THROW(AW_LOG_WARN(logger, "WARN should be orange"));
+    EXPECT_NO_THROW(AW_LOG_DEBUG(logger, "DEBUG should be violet"));
+
+    SUCCEED();
+}
+
 TEST(HelloAWLogger, WebsocketLogging)
 {
     auto websocket_appender = std::make_shared<aw_logger::WebsocketAppender>("ws://127.0.0.1:1234");
@@ -299,7 +321,7 @@ TEST(HelloAWLogger, WebsocketLogging)
     for (int i = 1; i <= ITERATIONS; i++)
     {
         AW_LOG_FMT_INFO(websocket_logger, "Awakelion Logger websocket uploading count: {}.", i);
-        // do something like switch threshold level
+        /* do something like switch threshold level */
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         AW_LOG_FATAL(websocket_logger, "threshold level switch testing");
     }

@@ -123,6 +123,29 @@ public:
     }
 
     /***
+     * @brief enable or disable color output for this appender
+     * @param enable true to enable color output, false to disable color output
+     */
+    void enableColor(bool enable = true)
+    {
+        std::lock_guard<std::mutex> lk(fmt_mtx_);
+        if (formatter_ == nullptr)
+            throw aw_logger::invalid_parameter("formatter is nullptr!");
+        formatter_->enableColor(enable);
+    }
+
+    /***
+     * @brief reset formatter colors to defaults
+     */
+    void resetLevelColors()
+    {
+        std::lock_guard<std::mutex> lk(fmt_mtx_);
+        if (formatter_ == nullptr)
+            throw aw_logger::invalid_parameter("formatter is nullptr!");
+        formatter_->resetLevelColors();
+    }
+
+    /***
      * @brief set log level threshold for appender
      * @param level log level threshold for appender
      */

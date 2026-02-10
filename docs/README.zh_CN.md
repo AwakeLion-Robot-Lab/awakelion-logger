@@ -210,6 +210,31 @@ int main() {
 }
 ```
 
+#### 颜色控制
+
+颜色在 formatter 中预先设定，可为不同级别自定义或关闭：
+
+```cpp
+auto factory = std::make_unique<aw_logger::ComponentFactory>();
+auto formatter = std::make_unique<aw_logger::Formatter>(std::move(factory));
+formatter->setLevelColor(aw_logger::LogLevel::level::INFO, "cyan");
+formatter->setLevelColor(aw_logger::LogLevel::level::WARN, "orange");
+formatter->setDebugColor("violet");
+
+auto console_appender = std::make_shared<aw_logger::ConsoleAppender>(std::move(formatter));
+console_appender->enableColor(true);
+
+auto logger = aw_logger::getLogger("colorful");
+logger->setAppender(console_appender);
+
+AW_LOG_INFO(logger, "INFO 显示为 cyan");
+AW_LOG_WARN(logger, "WARN 显示为 orange");
+AW_LOG_DEBUG(logger, "DEBUG 显示为 violet");
+
+auto file_appender = std::make_shared<aw_logger::FileAppender>("logs/app.log");
+file_appender->enableColor(false);
+```
+
 #### 自定义 Pattern 格式
 
 你可以使用 pattern 字符串自定义日志输出格式。以下是可用的格式说明符：
@@ -323,4 +348,3 @@ int main() {
 - [X] 在 `ComponentFactory` 类中支持 `%` 作为格式说明符。 @low @done(25-10-29 22:40)
 - [X] 在负载测试后，考虑支持双环形缓冲区以减少锁的颗粒度。 @low @done(25-10-18 03:02) [siyiya]: 目前暂时不需要。
 - [X] 支持 C++ 服务器的格式化器，包括上传 ANSI 颜色和格式解析，就像 `Formatter` 类一样。 @low @done(25-11-23 20:33)
-- [ ] 支持基于 `Flask` 的 Python 服务器。 @low

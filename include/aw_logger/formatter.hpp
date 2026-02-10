@@ -16,6 +16,7 @@
 #define FORMATTER_HPP
 
 // C++ standard library
+#include <array>
 #include <format>
 #include <map>
 #include <memory>
@@ -81,16 +82,7 @@ private:
             { { "type", "loc" },
               { "format", "[{file_name}:{function_name}:{line}]" },
               { "enabled", true } },
-            { { "type", "msg" }, { "enabled", true } },
-            { { "type", "color" },
-              { "level_colors",
-                { { "debug", "white" },
-                  { "info", "cyan" },
-                  { "notice", "blue" },
-                  { "warn", "yellow" },
-                  { "error", "red" },
-                  { "fatal", "magenta" } } },
-              { "enabled", true } } } }
+            { { "type", "msg" }, { "enabled", true } } } }
     };
 
     /***
@@ -161,6 +153,81 @@ public:
     }
 
     /***
+     * @brief enable or disable ANSI color output
+     * @param enable true to enable color output, false to disable color output
+     */
+    void enableColor(bool enable = true)
+    {
+        color_enabled_ = enable;
+    }
+
+    /***
+     * @brief reset all level colors to the built-in defaults
+     */
+    void resetLevelColors();
+
+    /***
+     * @brief set color for a log level by color name
+     * @param level log level
+     * @param color_name color name
+     */
+    void setLevelColor(LogLevel::level level, std::string_view color_name);
+
+    /***
+     * @brief set debug color
+     * @param color_name color name
+     */
+    void setDebugColor(std::string_view color_name)
+    {
+        setLevelColor(LogLevel::level::DEBUG, color_name);
+    }
+
+    /***
+     * @brief set info color
+     * @param color_name color name
+     */
+    void setInfoColor(std::string_view color_name)
+    {
+        setLevelColor(LogLevel::level::INFO, color_name);
+    }
+
+    /***
+     * @brief set notice color
+     * @param color_name color name
+     */
+    void setNoticeColor(std::string_view color_name)
+    {
+        setLevelColor(LogLevel::level::NOTICE, color_name);
+    }
+
+    /***
+     * @brief set warn color
+     * @param color_name color name
+     */
+    void setWarnColor(std::string_view color_name)
+    {
+        setLevelColor(LogLevel::level::WARN, color_name);
+    }
+
+    /***
+     * @brief set error color
+     * @param color_name color name
+     */
+    void setErrorColor(std::string_view color_name)
+    {
+        setLevelColor(LogLevel::level::ERROR, color_name);
+    }
+
+    /***
+     * @brief set fatal color
+     * @param color_name color name
+     */
+    void setFatalColor(std::string_view color_name)
+    {
+        setLevelColor(LogLevel::level::FATAL, color_name);
+    }
+
+    /***
      * @brief format log message into `std::string` within registered components
      * @param event log event
      * @param components registered components ordered vector
@@ -186,6 +253,16 @@ private:
      * @brief component factory provides registered components
      */
     ComponentFactory::Ptr factory_;
+
+    /***
+     * @brief flag to control color output
+     */
+    bool color_enabled_;
+
+    /***
+     * @brief pre-built color codes per log level
+     */
+    std::array<std::string, 7> level_color_codes_ {};
 
     /***
      * @brief format color
@@ -242,6 +319,32 @@ private:
     {
         auto tid = event->getThreadId();
         return Formatter::vformat("[tid: {}]", tid);
+    }
+
+    /***
+     * @brief convert log level to index
+     * @param level log level
+     * @return index for log level
+     * @note retval is constexpr
+     */
+    static constexpr size_t levelToIndex(LogLevel::level level) noexcept
+    {
+        return static_cast<size_t>(level);
+    }
+
+    /***
+     * @brief fetch color code for a given level
+     * @param level log level
+     * @return color code string for the log level
+     */
+    const std::string& colorForLevel(LogLevel::level level) const noexcept
+    {
+        static const std::string empty;
+        const auto idx = levelToIndex(level);
+        if (!color_enabled_ || idx >= level_color_codes_.size())
+            return empty;
+
+        return level_color_codes_[idx];
     }
 };
 
