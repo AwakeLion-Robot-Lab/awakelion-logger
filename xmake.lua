@@ -11,7 +11,7 @@ which is a lightweight, cross-platform build tool based on Lua.
 
 set_project("Awakelion-Logger")
 set_description("A low-latency, high-throughput and few-dependencies logger for `AwakeLion Robot Lab` project.")
-set_version("1.0.0")
+set_version("1.0.2")
 set_xmakever("2.9.8")
 set_license("Apache-2.0")
 
