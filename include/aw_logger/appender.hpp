@@ -22,9 +22,9 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <string_view>
-#include <syncstream>
 
 // IXWebSocket library
 #include <ixwebsocket/IXWebSocket.h>
@@ -99,7 +99,7 @@ public:
      */
     void setFormatter(Formatter::Ptr formatter)
     {
-        std::lock_guard<std::mutex> lk(app_mtx_);
+        std::unique_lock<std::shared_mutex> lk(fmt_mtx_);
         formatter_ = std::move(formatter);
     }
 
@@ -110,7 +110,7 @@ public:
      */
     void setPattern(std::string_view pattern)
     {
-        std::lock_guard<std::mutex> lk(fmt_mtx_);
+        std::unique_lock<std::shared_mutex> lk(fmt_mtx_);
         auto factory = std::make_unique<ComponentFactory>(pattern);
         if (formatter_ == nullptr)
         {
@@ -128,7 +128,7 @@ public:
      */
     void enableColor(bool enable = true)
     {
-        std::lock_guard<std::mutex> lk(fmt_mtx_);
+        std::unique_lock<std::shared_mutex> lk(fmt_mtx_);
         if (formatter_ == nullptr)
             throw aw_logger::invalid_parameter("formatter is nullptr!");
         formatter_->enableColor(enable);
@@ -139,7 +139,7 @@ public:
      */
     void resetLevelColors()
     {
-        std::lock_guard<std::mutex> lk(fmt_mtx_);
+        std::unique_lock<std::shared_mutex> lk(fmt_mtx_);
         if (formatter_ == nullptr)
             throw aw_logger::invalid_parameter("formatter is nullptr!");
         formatter_->resetLevelColors();
@@ -175,50 +175,39 @@ protected:
     std::atomic<LogLevel::level> threshold_level_;
 
     /***
-     * @brief appender mutex
-     */
-    mutable std::mutex app_mtx_;
-
-    /***
      * @brief formatter mutex
      */
-    mutable std::mutex fmt_mtx_;
+    mutable std::shared_mutex fmt_mtx_;
 
     /***
-     * @brief format log message
+     * @brief format log message to output string
+     * @param out destination string
      * @param event log event
      */
-    std::string formatMsg(const LogEvent::Ptr& event)
+    void formatMsgTo(std::string& out, const LogEvent::Ptr& event)
     {
-        std::lock_guard<std::mutex> lk(fmt_mtx_);
-        if (formatter_ != nullptr && event != nullptr)
-            return formatter_->formatComponents(event, formatter_->getRegisteredComponents());
-        else if (formatter_ == nullptr)
-        {
+        std::shared_lock<std::shared_mutex> lk(fmt_mtx_);
+        if (formatter_ == nullptr)
             throw aw_logger::invalid_parameter("formatter is nullptr!");
-        }
-        else
-        {
-            throw aw_logger::invalid_parameter("event is nullptr!");
-        }
+        formatter_->formatComponentsTo(out, event, formatter_->getRegisteredComponents());
     }
 };
 
 /***
- * @brief console appender class which output to console directly via `std::osyncstream`
+ * @brief console appender class which output to console
  */
 class ConsoleAppender final: public BaseAppender {
 public:
     /***
-     * @brief construtor
-     * @param stream_type stream type, "stdout" - `std::cout` | "stderr" - `std::cerr`
+     * @brief constructor
+     * @param stream_type stream type, "stdout" | "stderr"
      */
     explicit ConsoleAppender(std::string_view stream_type = "stdout");
 
     /***
      * @brief constructor with formatter
      * @param formatter formatter
-     * @param stream_type stream type, "stdout" - `std::cout` | "stderr" - `std::cerr`
+     * @param stream_type stream type, "stdout" | "stderr"
      */
     explicit ConsoleAppender(Formatter::Ptr formatter, std::string_view stream_type = "stdout");
 
@@ -231,24 +220,29 @@ public:
     /***
      * @brief flush output stream
      */
-    virtual void flush() override
-    {
-        /* use `std::osyncstream` to ensure thread-safe */
-        std::osyncstream(output_stream_) << std::flush;
-    }
+    virtual void flush() override {}
 
 private:
     /***
-     * @brief reference to output stream，support `std::cout` and `std::cerr`
+     * @brief output file descriptor
      */
-    std::ostream& output_stream_;
+    int fd_;
 
     /***
-     * @brief get output stream type
-     * @param stream_type stream type
-     * @return reference to std::cout or std::cerr
+     * @brief mutex only for messages longer than `PIPE_BUF`
      */
-    inline static std::ostream& getStreamType(std::string_view stream_type);
+    static std::mutex& bigWriteMutex()
+    {
+        static std::mutex m;
+        return m;
+    }
+
+    /***
+     * @brief map stream name to fd
+     * @param stream_type stream type
+     * @return file descriptor corresponding to stream type
+     */
+    inline static int getStreamFd(std::string_view stream_type);
 };
 
 /***
@@ -332,6 +326,11 @@ public:
     void reopen(bool is_trunc = false);
 
 private:
+    /***
+     * @brief file mutex
+     */
+    mutable std::mutex file_mtx_;
+
     /***
      * @brief file stream for log output
      */

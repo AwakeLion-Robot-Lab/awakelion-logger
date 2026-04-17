@@ -289,8 +289,8 @@ Performance tests conducted on the following environment:
 |    Threads     |                 4                  |
 |   Total Logs   |       100,000 * 4 = 400,000        |
 |    Log Size    | 130-150 bytes(without `file_name`) |
-|  Average Time  |        2426.8 ms (5 rounds)        |
-| **Throughput** |       **~164,800 logs/sec**        |
+|  Average Time  |        2185.2 ms (5 rounds)        |
+| **Throughput** |       **~183,000 logs/sec**        |
 
 *Note: log size is includes all the format except for the `file_name`*
 

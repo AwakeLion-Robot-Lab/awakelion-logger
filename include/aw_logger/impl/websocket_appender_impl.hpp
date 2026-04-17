@@ -18,6 +18,7 @@
 // C++ standard library
 #include <chrono>
 #include <format>
+#include <shared_mutex>
 
 // nlohmann JSON library
 #include <nlohmann/json.hpp>
@@ -77,7 +78,7 @@ void aw_logger::WebsocketAppender::append(const LogEvent::Ptr& event)
     nlohmann::json log_msg_json;
     // clang-format off
     {
-        std::lock_guard<std::mutex> app_lk(app_mtx_);
+        std::shared_lock<std::shared_mutex> fmt_lk(fmt_mtx_);
         auto const& components = formatter_->getRegisteredComponents();
         for (auto const& [key, format]: components)
         {

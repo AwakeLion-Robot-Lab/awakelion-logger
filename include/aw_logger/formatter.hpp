@@ -228,13 +228,14 @@ public:
     }
 
     /***
-     * @brief format log message into `std::string` within registered components
+     * @brief format log message within registered components and append into `out`
+     * @param out output string
      * @param event log event
      * @param components registered components ordered vector
-     * @return formatted log message
-     * @details the format is able to be customized in `logger_settings.json`
+     * @details avoids per-call heap allocation when callers reuse a `thread_local` buffer.
      */
-    std::string formatComponents(
+    void formatComponentsTo(
+        std::string& out,
         const LogEvent::Ptr& event,
         const std::vector<std::pair<std::string, std::string>>& components
     );
@@ -273,53 +274,13 @@ private:
     std::string formatColor(std::string_view format);
 
     /***
-     * @brief format log message
+     * @brief format source location into `out`
+     * @param out output string
      * @param event log event
-     * @return formatted log message
-     */
-    std::string formatMsg(const LogEvent::Ptr& event)
-    {
-        return event->getMsg();
-    }
-
-    /***
-     * @brief format log level
-     * @param event log event
-     * @return formatted log level
-     */
-    std::string formatLevel(const LogEvent::Ptr& event)
-    {
-        auto level = event->getLogLevelString();
-        return Formatter::vformat("[{}]", level);
-    }
-
-    /***
-     * @brief format log timestamp
-     * @param event log event
-     * @return formatted log timestamp
-     */
-    std::string formatTimestamp(const LogEvent::Ptr& event)
-    {
-        auto timestamp = event->getTimestamp();
-        return Formatter::vformat("[{}]", timestamp);
-    }
-
-    /***
-     * @brief format log source location
      * @param format source location format
-     * @return formatted log source location
      */
-    std::string formatSourceLocation(const LogEvent::Ptr& event, std::string_view format);
-
-    /***
-     * @brief format log thread id
-     * @return formatted log thread id
-     */
-    std::string formatThreadId(const LogEvent::Ptr& event)
-    {
-        auto tid = event->getThreadId();
-        return Formatter::vformat("[tid: {}]", tid);
-    }
+    void
+    formatSourceLocation(std::string& out, const LogEvent::Ptr& event, std::string_view format);
 
     /***
      * @brief convert log level to index

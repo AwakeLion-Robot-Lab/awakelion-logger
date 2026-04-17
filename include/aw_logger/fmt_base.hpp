@@ -234,20 +234,25 @@ public:
      * @param l log level
      * @return `std::string` of log level
      */
-    static inline std::string to_string(LogLevel::level l) noexcept
+    static inline const std::string& to_string(LogLevel::level l) noexcept
     {
         switch (l)
         {
 #define LOG_LEVEL_FUNC(name) \
-    case LogLevel::level::name: \
-        return #name; \
+    case LogLevel::level::name: { \
+        static const std::string s_##name = #name; \
+        return s_##name; \
+    } \
         break;
             LOG_LEVEL_DEFINITION(LOG_LEVEL_FUNC)
 #undef LOG_LEVEL_FUNC
-            default:
-                return "UNKNOWN";
+            default: {
+                static const std::string s_unknown = "UNKNOWN";
+                return s_unknown;
+            }
         }
-        return "UNKNOWN";
+        static const std::string s_unknown = "UNKNOWN";
+        return s_unknown;
     }
 
     /***

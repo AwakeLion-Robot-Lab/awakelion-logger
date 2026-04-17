@@ -15,6 +15,14 @@
 #ifndef IMPL__CONSOLE_APPENDER_IMPL_HPP
 #define IMPL__CONSOLE_APPENDER_IMPL_HPP
 
+// POSIX library
+#include <limits.h>
+#include <unistd.h>
+
+// C++ standard library
+#include <cerrno>
+#include <mutex>
+
 // aw_logger library
 #include "aw_logger/appender.hpp"
 
@@ -25,33 +33,66 @@
  * @author jinhua "siyiovo" deng
  */
 namespace aw_logger {
-ConsoleAppender::ConsoleAppender(std::string_view stream_type):
-    output_stream_(getStreamType(stream_type))
-{}
+ConsoleAppender::ConsoleAppender(std::string_view stream_type): fd_(getStreamFd(stream_type)) {}
 
 ConsoleAppender::ConsoleAppender(Formatter::Ptr formatter, std::string_view stream_type):
     BaseAppender(std::move(formatter)),
-    output_stream_(getStreamType(stream_type))
+    fd_(getStreamFd(stream_type))
 {}
 
 void ConsoleAppender::append(const LogEvent::Ptr& event)
 {
-    /* check status of log level */
-    auto const curr_level = getThresholdLevel();
-    if (event->getLogLevel() < curr_level)
+    /* check level */
+    if (event->getLogLevel() < getThresholdLevel())
         return;
 
-    auto log_msg = formatMsg(event);
-    /* create temporary osyncstream - automatically emits on destruction for thread-safe output */
-    std::osyncstream(output_stream_) << log_msg << std::endl;
+    /* thread-local buffer for no malloc */
+    thread_local std::string log_msg;
+    log_msg.clear();
+    formatMsgTo(log_msg, event);
+    log_msg.push_back('\n');
+
+    const char* data = log_msg.data();
+    size_t remaining = log_msg.size();
+
+    if (remaining <= static_cast<size_t>(PIPE_BUF))
+    {
+        while (remaining > 0)
+        {
+            ssize_t n = ::write(fd_, data, remaining);
+            if (n < 0)
+            {
+                if (errno == EINTR)
+                    continue;
+                return;
+            }
+            data += n;
+            remaining -= static_cast<size_t>(n);
+        }
+        return;
+    }
+
+    std::lock_guard<std::mutex> lk(bigWriteMutex());
+    while (remaining > 0)
+    {
+        ssize_t n = ::write(fd_, data, remaining);
+        if (n < 0)
+        {
+            if (errno == EINTR)
+                continue;
+            return;
+        }
+        data += n;
+        remaining -= static_cast<size_t>(n);
+    }
 }
 
-inline std::ostream& aw_logger::ConsoleAppender::getStreamType(std::string_view stream_type)
+inline int ConsoleAppender::getStreamFd(std::string_view stream_type)
 {
     if (stream_type == "stdout")
-        return std::cout;
+        return STDOUT_FILENO;
     else if (stream_type == "stderr")
-        return std::cerr;
+        return STDERR_FILENO;
     else
         throw aw_logger::invalid_parameter("invalid stream type, please use 'stdout' or 'stderr'.");
 }

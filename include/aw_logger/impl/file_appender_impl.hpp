@@ -109,18 +109,21 @@ inline void FileAppender::open(bool is_trunc)
 
 void FileAppender::append(const LogEvent::Ptr& event)
 {
-    /* check status of log level */
+    /* check level */
     auto const curr_level = getThresholdLevel();
     if (event->getLogLevel() < curr_level)
         return;
 
-    auto log_msg = formatMsg(event);
+    /* thread-local buffer for no malloc */
+    thread_local std::string log_msg;
+    log_msg.clear();
+    formatMsgTo(log_msg, event);
     /* make sure that it has EOF */
     if (log_msg.empty() || log_msg.back() != '\n')
         log_msg.push_back('\n');
     const auto log_msg_size = log_msg.size();
 
-    std::lock_guard<std::mutex> app_lk(app_mtx_);
+    std::lock_guard<std::mutex> file_lk(file_mtx_);
     /* check if buffer needs flush before append */
     if (buffer_.capacity() == 0)
     {
@@ -150,7 +153,7 @@ void FileAppender::append(const LogEvent::Ptr& event)
 
 inline void FileAppender::flush()
 {
-    std::lock_guard<std::mutex> app_lk(app_mtx_);
+    std::lock_guard<std::mutex> file_lk(file_mtx_);
     flushToBuffer();
 
     if (file_stream_.is_open())
@@ -159,7 +162,7 @@ inline void FileAppender::flush()
 
 inline void FileAppender::reopen(bool is_trunc)
 {
-    std::lock_guard<std::mutex> app_lk(app_mtx_);
+    std::lock_guard<std::mutex> file_lk(file_mtx_);
     flushToBuffer();
     open(is_trunc);
 

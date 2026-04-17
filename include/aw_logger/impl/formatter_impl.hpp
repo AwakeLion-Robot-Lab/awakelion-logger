@@ -205,7 +205,8 @@ inline void Formatter::setLevelColor(LogLevel::level level, std::string_view col
     level_color_codes_[levelToIndex(level)] = formatColor(color_name);
 }
 
-std::string Formatter::formatComponents(
+inline void Formatter::formatComponentsTo(
+    std::string& out,
     const LogEvent::Ptr& event,
     const std::vector<std::pair<std::string, std::string>>& components
 )
@@ -214,58 +215,55 @@ std::string Formatter::formatComponents(
     if (event == nullptr)
         throw aw_logger::invalid_parameter("log event pointer is nullptr!");
 
-    std::string result;
-    result.reserve(event->getMsg().size() + 256);
-
     try
     {
         const std::string& color_code = colorForLevel(event->getLogLevel());
         const bool is_has_color_code = color_enabled_ && !color_code.empty();
+        auto inserter = std::back_inserter(out);
 
         for (const auto& [type, format]: components)
         {
             if (type == "timestamp")
             {
-                result += formatTimestamp(event);
+                std::format_to(inserter, "[{}]", event->getTimestamp());
             }
             else if (type == "level")
             {
                 if (is_has_color_code)
-                    result += color_code;
+                    out.append(color_code);
 
-                result += formatLevel(event);
+                std::format_to(inserter, "[{}]", event->getLogLevelString());
 
                 if (is_has_color_code)
-                    result += aw_logger::Color::endColor;
+                    out.append(aw_logger::Color::endColor);
             }
             else if (type == "tid")
             {
-                result += formatThreadId(event);
+                std::format_to(inserter, "[tid: {}]", event->getThreadId());
             }
             else if (type == "loc")
             {
-                result += formatSourceLocation(event, format);
+                formatSourceLocation(out, event, format);
             }
             else if (type == "msg")
             {
                 if (is_has_color_code)
-                    result += color_code;
+                    out.append(color_code);
 
-                result += formatMsg(event);
+                out.append(event->getMsg());
 
                 if (is_has_color_code)
-                    result += aw_logger::Color::endColor;
+                    out.append(aw_logger::Color::endColor);
             }
             else if (type == "text")
             {
-                result += format;
+                out.append(format);
             }
         }
     } catch (const std::exception& ex)
     {
         std::cerr << ex.what() << '\n' << std::endl;
     }
-    return result;
 }
 
 inline std::string Formatter::formatColor(std::string_view format)
@@ -283,43 +281,40 @@ inline std::string Formatter::formatColor(std::string_view format)
     return Formatter::vformat("\033[38;2;{};{};{}m", r, g, b);
 }
 
-inline std::string
-Formatter::formatSourceLocation(const LogEvent::Ptr& event, std::string_view format)
+inline void
+Formatter::formatSourceLocation(std::string& out, const LogEvent::Ptr& event, std::string_view format)
 {
     auto const& loc = event->getSourceLocation();
-    std::string result;
-    result.reserve(format.size() + 100);
     size_t prev_pos = 0, pos = 0;
 
     while ((pos = format.find('{', prev_pos)) != std::string_view::npos)
     {
-        result.append(format.data() + prev_pos, pos - prev_pos);
+        out.append(format.data() + prev_pos, pos - prev_pos);
 
         /* match placeholders */
         if (format.compare(pos, 11, "{file_name}") == 0)
         {
-            result += loc.file_name();
+            out.append(loc.file_name());
             prev_pos = pos + 11;
         }
         else if (format.compare(pos, 15, "{function_name}") == 0)
         {
-            result += loc.function_name();
+            out.append(loc.function_name());
             prev_pos = pos + 15;
         }
         else if (format.compare(pos, 6, "{line}") == 0)
         {
-            result += std::to_string(loc.line());
+            std::format_to(std::back_inserter(out), "{}", loc.line());
             prev_pos = pos + 6;
         }
         else
         {
-            result += format[pos];
+            out.push_back(format[pos]);
             prev_pos = pos + 1;
         }
     }
 
-    result.append(format.data() + prev_pos, format.size() - prev_pos);
-    return Formatter::vformat("{}", result);
+    out.append(format.data() + prev_pos, format.size() - prev_pos);
 }
 
 } // namespace aw_logger

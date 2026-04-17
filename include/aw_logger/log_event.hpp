@@ -130,7 +130,7 @@ public:
      * @brief get log level in type of `std::string`
      * @return log level in type of `std::string`
      */
-    inline std::string getLogLevelString() const noexcept
+    inline const std::string& getLogLevelString() const noexcept
     {
         return LogLevel::to_string(level_);
     }
@@ -157,7 +157,7 @@ public:
     /***
      * @brief get input message
      */
-    inline std::string getMsg() const noexcept
+    inline const std::string& getMsg() const noexcept
     {
         return wrapped_msg_.getData();
     }
