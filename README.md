@@ -228,17 +228,9 @@ auto logger = std::make_shared<aw_logger::Logger>(
 logger->setAppender(std::make_shared<aw_logger::ConsoleAppender>());
 ```
 
-`drop_new` rejects a new event when its queue is full. `block` waits for a queue slot and is
-appropriate when producer backpressure is acceptable. `overrun_oldest` accepts the new event and
-discards the oldest queued event. Policies are fixed when the logger is constructed; use separate
-logger instances or an outer routing layer when a runtime mode switch is required. `flush()` waits
-for accepted and explicitly overwritten events to reach a terminal state. A blocking submit from
-the same logger's appender callback is rejected to avoid waiting on the worker itself.
+`drop_new` rejects a new event when its queue is full. `block` waits for a queue slot and is appropriate when producer backpressure is acceptable. `overrun_oldest` accepts the new event anddiscards the oldest queued event. Policies are fixed when the logger is constructed; use separate logger instances or an outer routing layer when a runtime mode switch is required. `flush()` waits for accepted and explicitly overwritten events to reach a terminal state. A blocking submit from the same logger's appender callback is rejected to avoid waiting on the worker itself.
 
-Logger destruction flushes pending work and joins its worker. `flush()` returns immediately when
-called from that logger's appender callback, while `stop()` is rejected there. Release the final
-`Logger` owner from an external thread, never from one of that logger's own appender callbacks; a
-callback cannot join the worker currently executing it, so this invalid lifecycle path is rejected.
+Logger destruction flushes pending work and joins its worker. `flush()` returns immediately when called from that logger's appender callback, while `stop()` is rejected there. Release the final `Logger` owner from an external thread, never from one of that logger's own appender callbacks; a callback cannot join the worker currently executing it, so this invalid lifecycle path is rejected.
 
 #### Color Control
 
@@ -323,34 +315,24 @@ The following values are the median of five Release runs of
 |    Threads     |                 8                  |
 |   Total Logs   |        50,000 * 8 = 400,000        |
 |    Log Size    | 130-150 bytes(without `file_name`) |
-|  Median Time   |         488.1 ms (5 rounds)        |
-| **Throughput** |  **~819k offered calls/sec**       |
+|  Median Time   |        488.1 ms (5 rounds)         |
+| **Throughput** |    **~819k offered calls/sec**     |
 
-*Note: log size includes all formatting except for the `file_name`. The current default
-`drop_new` policy makes this an offered-call rate, not a delivered-log rate; use the overflow
-baseline below to measure delivery.*
+*Note: log size includes all formatting except for the `file_name`. The current default `drop_new` policy makes this an offered-call rate, not a delivered-log rate; use the overflow baseline below to measure delivery.*
 
 #### Overflow Policy Baseline (Release, ARM64)
 
-The following results are the median of five runs pinned to CPU 0. Each run offered 100,000
-formatted INFO events with the default queue capacities (normal 256, critical 64); stdout was
-redirected to `/dev/null`. Times are producer / flush drain / end-to-end elapsed time.
+The following results are the median of five runs pinned to CPU 0. Each run offered 100,000 formatted INFO events with the default queue capacities (normal 256, critical 64); stdout was redirected to `/dev/null`. Times are producer / flush drain / end-to-end elapsed time.
 
-| Policy | Producer avg / P99 | Producer throughput | Delivered (range) | Not delivered | Producer / drain / end-to-end |
-| :----- | -----------------: | ------------------: | ----------------: | ------------: | ----------------------------: |
-| `drop_new` | 1.23 us / 17.5 us | 811k calls/s | 5,510 (5,237-5,580) | 94,490 | 131.0 / 0.84 / 131.8 ms |
-| `block` | 8.61 us / 11.0 us | 116k calls/s | 100,000 | 0 | 868.3 / 1.91 / 870.4 ms |
-| `overrun_oldest` | 2.19 us / 18.4 us | 457k calls/s | 9,365 (9,311-9,875) | 90,635 | 226.5 / 0.87 / 227.4 ms |
+| Policy           | Producer avg / P99 | Producer throughput |   Delivered (range) | Not delivered | Producer / drain / end-to-end |
+| :--------------- | -----------------: | ------------------: | ------------------: | ------------: | ----------------------------: |
+| `drop_new`       |  1.23 us / 17.5 us |        811k calls/s | 5,510 (5,237-5,580) |        94,490 |       131.0 / 0.84 / 131.8 ms |
+| `block`          |  8.61 us / 11.0 us |        116k calls/s |             100,000 |             0 |       868.3 / 1.91 / 870.4 ms |
+| `overrun_oldest` |  2.19 us / 18.4 us |        457k calls/s | 9,365 (9,311-9,875) |        90,635 |       226.5 / 0.87 / 227.4 ms |
 
-Best-effort policies trade delivery for producer latency: `drop_new` rejects new events while
-`overrun_oldest` keeps newer events by replacing queued ones. `block` delivered every offered
-event in this run, at the cost of producer backpressure.
+Best-effort policies trade delivery for producer latency: `drop_new` rejects new events while `overrun_oldest` keeps newer events by replacing queued ones. `block` delivered every offered event in this run, at the cost of producer backpressure.
 
-The load benchmark also compares all three overflow policies under the same offered load. It
-reports producer-only elapsed time, flush-only drain time, and producer-start-to-drain-complete
-elapsed time separately. The overflow benchmark prints the offered count and the appender-observed
-delivered count, so `offered - delivered` is the observable loss for that run. Do not interpret
-producer call rate as delivered log rate when a best-effort policy is dropping events.
+The load benchmark also compares all three overflow policies under the same offered load. It reports producer-only elapsed time, flush-only drain time, and producer-start-to-drain-complete elapsed time separately. The overflow benchmark prints the offered count and the appender-observed delivered count, so `offered - delivered` is the observable loss for that run. Do not interpret producer call rate as delivered log rate when a best-effort policy is dropping events.
 
 #### `Valgrind` Memory Leak Test
 
