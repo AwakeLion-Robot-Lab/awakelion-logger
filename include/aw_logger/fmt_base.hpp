@@ -1,4 +1,4 @@
-// Copyright 2025 siyiovo
+// Copyright 2026 siyiovo
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -238,14 +238,15 @@ public:
     {
         switch (l)
         {
+            // clang-format off
 #define LOG_LEVEL_FUNC(name) \
     case LogLevel::level::name: { \
         static const std::string s_##name = #name; \
         return s_##name; \
-    } \
-        break;
+    }
             LOG_LEVEL_DEFINITION(LOG_LEVEL_FUNC)
 #undef LOG_LEVEL_FUNC
+            // clang-format on
             default: {
                 static const std::string s_unknown = "UNKNOWN";
                 return s_unknown;

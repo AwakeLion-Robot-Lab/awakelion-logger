@@ -1,4 +1,4 @@
-// Copyright 2025 siyiovo
+// Copyright 2026 siyiovo
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -171,18 +171,19 @@ public:
 
     /***
      * @brief get logger
-     * @return logger
+     * @return shared logger
      */
     inline Logger::Ptr getLogger() const noexcept
     {
-        return logger_;
+        return logger_.lock();
     }
 
 private:
     /***
-     * @brief logger
+     * @brief weak pointer of logger
+     * @note used for observation only, not ownership
      */
-    Logger::Ptr logger_;
+    std::weak_ptr<Logger> logger_;
 
     /***
      * @brief level
@@ -229,10 +230,24 @@ public:
      * @brief destructor to pass wrapped message to logger
      * @details thanks to RAII, when `LogEventWrap` is destructed, the wrapped message is passed to logger
      */
-    ~LogEventWrap()
+    ~LogEventWrap() noexcept
     {
-        if (event_ != nullptr)
-            event_->getLogger()->submit(event_);
+        /* skip empty or expired event */
+        if (event_ == nullptr)
+            return;
+
+        /* get shared logger and check whether logger is exist */
+        auto logger = event_->getLogger();
+        if (logger == nullptr)
+            return;
+
+        try
+        {
+            logger->submit(event_);
+        } catch (...)
+        {
+            /* keep submission failures out of the destructor */
+        }
     }
 
 private:

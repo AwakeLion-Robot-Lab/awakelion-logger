@@ -210,6 +210,35 @@ int main() {
 }
 ```
 
+### 日志溢出策略
+
+两参数 `Logger` 构造函数保持默认的有界、非阻塞 `drop_new` 行为（normal 队列容量 256，
+critical 队列容量 64）。如果需要不同的背压策略，可以使用 options 重载：
+
+```cpp
+aw_logger::Logger::Options options;
+options.normal_policy = aw_logger::Logger::Policy::block;
+options.critical_policy = aw_logger::Logger::Policy::overrun_oldest;
+
+auto logger = std::make_shared<aw_logger::Logger>(
+    "service",
+    aw_logger::LogLevel::level::DEBUG,
+    options
+);
+logger->setAppender(std::make_shared<aw_logger::ConsoleAppender>());
+```
+
+`drop_new` 在队列满时拒绝新事件；`block` 等待队列出现空槽，适合可以接受 producer 背压的
+场景；`overrun_oldest` 接收新事件并丢弃队列中最旧的事件。策略在 logger 构造时固定；如果
+需要运行时切换，应使用不同 logger 或在外层做路由。`flush()` 会等待已接收以及已明确记账
+的覆盖事件到达终态。同一个 logger 的 appender 回调中不能使用 `block` 策略再次提交；实现
+会拒绝这种递归调用，避免 worker 等待自身。
+
+Logger 析构时会排空待处理事件并 join worker。在该 logger 自己的 appender 回调中调用
+`flush()` 会立即返回，调用 `stop()` 会被拒绝。最后一个 `Logger` 所有者必须在外部线程释放，
+不能在回调中释放；回调无法 join 正在执行它的 worker，因此实现会拒绝这条无效的生命周期
+路径。
+
 #### 颜色控制
 
 颜色在 formatter 中预先设定，可为不同级别自定义或关闭：
@@ -283,15 +312,39 @@ int main() {
 
 #### 多线程性能（控制台输出）
 
+下面数据为 `BenchmarkLogger.MultiThreadedLogging` 在 Release 模式运行 5 次的中位数，stdout
+重定向到 `/dev/null`。
+
 |    指标    |                值                |
 | :--------: | :------------------------------: |
-|   线程数   |                4                 |
-|  总日志数  |      100,000 * 4 = 400,000       |
+|   线程数   |                8                 |
+|  总日志数  |       50,000 * 8 = 400,000       |
 |  日志大小  | 130-150 字节（不含 `file_name`） |
-|  平均时间  |       2426.8 毫秒（5 轮）        |
-| **吞吐量** |      **~164,800 条日志/秒**      |
+|  中位时间  |        488.1 毫秒（5 轮）        |
+| **吞吐量** |     **~819k 次 offered/秒**      |
 
-*注意：基准测试的log除了 `file_name` 外，其余组件全部格式化*
+*注意：基准测试除了 `file_name` 外，其余组件全部格式化。当前默认 `drop_new` 策略下，这里
+统计的是 offered 调用速率而不是实际送达日志速率；送达率请参考下面的溢出策略基线。*
+
+#### 溢出策略基线（Release，ARM64）
+
+下面数据为固定 CPU 0 后运行 5 次的中位数。每次提供 100,000 条格式化 INFO 日志，使用默认
+队列容量（normal 256、critical 64），并将 stdout 重定向到 `/dev/null`。时间依次为 producer、
+flush 排空和端到端耗时。
+
+| 策略 | Producer 平均 / P99 | Producer 吞吐 | 送达数（范围） | 未送达 | Producer / 排空 / 端到端 |
+| :--- | ------------------: | ------------: | -------------: | -----: | ------------------------: |
+| `drop_new` | 1.23 us / 17.5 us | 811k 次/秒 | 5,510（5,237-5,580） | 94,490 | 131.0 / 0.84 / 131.8 ms |
+| `block` | 8.61 us / 11.0 us | 116k 次/秒 | 100,000 | 0 | 868.3 / 1.91 / 870.4 ms |
+| `overrun_oldest` | 2.19 us / 18.4 us | 457k 次/秒 | 9,365（9,311-9,875） | 90,635 | 226.5 / 0.87 / 227.4 ms |
+
+best-effort 策略用送达率换取 producer 延迟：`drop_new` 拒绝新事件，`overrun_oldest` 通过覆盖
+队列中的旧事件保留更新内容。本轮 `block` 送达了全部 offered 事件，但 producer 会承受背压。
+
+负载 benchmark 会在相同 offered load 下比较三种溢出策略，并分别报告 producer-only、
+flush-only 排空时间，以及从 producer 开始到排空完成的端到端时间。overflow benchmark 输出
+提供数量和 appender 实际观测的送达数量，因此 `offered - delivered` 就是本次运行可观察到的
+丢失量。使用 best-effort 策略时，producer 调用速率不能直接当作实际送达日志速率。
 
 #### `Valgrind`内存泄漏测试
 

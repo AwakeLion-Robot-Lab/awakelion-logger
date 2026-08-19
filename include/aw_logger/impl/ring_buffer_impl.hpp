@@ -1,4 +1,4 @@
-// Copyright 2025 siyiovo
+// Copyright 2026 siyiovo
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,10 @@
 #ifndef IMPL__RING_BUFFER_IMPL_HPP
 #define IMPL__RING_BUFFER_IMPL_HPP
 
+// C++ standard library
+#include <limits>
+#include <type_traits>
+
 // aw_logger library
 #include "aw_logger/ring_buffer.hpp"
 
@@ -28,10 +32,10 @@ inline RingBuffer<DataT, Allocator>::RingBuffer(size_t capacity):
     mask_(roundUpPow2(capacity) - 1)
 {
     /* judge size */
-    const size_t r_capacity = mask_ + 1;
-    if (r_capacity < 2)
+    if (capacity < 2 || mask_ == std::numeric_limits<size_t>::max())
         throw aw_logger::invalid_parameter("capacity must be greater than 1!");
 
+    const size_t r_capacity = mask_ + 1;
     const size_t e_size = sizeof(DataT);
     if (r_capacity > (std::numeric_limits<size_t>::max() / e_size))
         throw aw_logger::invalid_parameter("requested capacity too large!");
@@ -74,6 +78,12 @@ bool RingBuffer<DataT, Allocator>::push(U&& data)
     if (buffer_ == nullptr)
         return false;
 
+    static_assert(
+        std::is_nothrow_assignable_v<value_t&, U>,
+        "RingBuffer::push requires noexcept assignment of DataT: "
+        "a throw between slot claim and sequence publish deadlocks the queue"
+    );
+
     /* here use `std::memory_order_relaxed` 'cause ONLY producer can update write index */
     size_t curr_wIdx = wIdx_.load(std::memory_order_relaxed);
     cell_t* curr_cell;
@@ -92,7 +102,7 @@ bool RingBuffer<DataT, Allocator>::push(U&& data)
         if (used_size == 0)
         {
             /* wIdx_ update to next index if equal to curr_wIdx */
-            if (wIdx_.compare_exchange_weak(curr_wIdx, curr_wIdx + 1, std::memory_order_relaxed))
+            if (wIdx_.compare_exchange_weak(curr_wIdx, curr_wIdx + 1, std::memory_order_release))
                 break;
         }
         /**
@@ -125,6 +135,12 @@ bool RingBuffer<DataT, Allocator>::pop(value_t& data)
     if (buffer_ == nullptr)
         return false;
 
+    static_assert(
+        std::is_nothrow_move_assignable_v<value_t>,
+        "RingBuffer::pop requires noexcept move-assignment of DataT: "
+        "a throw between slot claim and sequence publish deadlocks the queue"
+    );
+
     /* here use `std::memory_order_acquire` 'cause ONLY consumer can update read index */
     size_t curr_rIdx = rIdx_.load(std::memory_order_relaxed);
     cell_t* curr_cell;
@@ -141,7 +157,7 @@ bool RingBuffer<DataT, Allocator>::pop(value_t& data)
         if (used_size == 0)
         {
             /* rIdx_ update to next index if equal to curr_rIdx */
-            if (rIdx_.compare_exchange_weak(curr_rIdx, curr_rIdx + 1, std::memory_order_relaxed))
+            if (rIdx_.compare_exchange_weak(curr_rIdx, curr_rIdx + 1, std::memory_order_release))
                 break;
         }
         /* here means all the data has been read */
@@ -157,7 +173,7 @@ bool RingBuffer<DataT, Allocator>::pop(value_t& data)
     }
 
     data = std::move(curr_cell->data_);
-    /* read operation；sequence = curr_wIdx + mask_ + 1 */
+    /* release cell for next write */
     curr_cell->sequence_.store(curr_rIdx + mask_ + 1, std::memory_order_release);
 
     return true;
@@ -168,7 +184,35 @@ inline constexpr size_t RingBuffer<DataT, Allocator>::getSize() const noexcept
 {
     const size_t curr_wIdx = wIdx_.load(std::memory_order_acquire);
     const size_t curr_rIdx = rIdx_.load(std::memory_order_acquire);
-    return (curr_wIdx >= curr_rIdx) ? (curr_wIdx - curr_rIdx) : (curr_wIdx + mask_ + 1 - curr_rIdx);
+    return curr_wIdx - curr_rIdx;
+}
+
+template<typename DataT, typename Allocator>
+inline size_t RingBuffer<DataT, Allocator>::getWritePosition() const noexcept
+{
+    return wIdx_.load(std::memory_order_acquire);
+}
+
+template<typename DataT, typename Allocator>
+bool RingBuffer<DataT, Allocator>::pushOverwriteOldest(const value_t& data, value_t& discarded)
+{
+    /* serialize replacement with worker pop */
+    std::lock_guard<std::mutex> lock(overwrite_mtx_);
+
+    if (push(data))
+        return true;
+
+    /* discard oldest event and retry */
+    pop(discarded);
+    return push(data);
+}
+
+template<typename DataT, typename Allocator>
+bool RingBuffer<DataT, Allocator>::popOverwriteOldest(value_t& data)
+{
+    /* keep overwrite pop exclusive with replacement */
+    std::lock_guard<std::mutex> lock(overwrite_mtx_);
+    return pop(data);
 }
 
 } // namespace aw_logger

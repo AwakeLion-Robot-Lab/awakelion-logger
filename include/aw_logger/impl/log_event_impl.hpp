@@ -1,4 +1,4 @@
-// Copyright 2025 siyiovo
+// Copyright 2026 siyiovo
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,14 +23,24 @@
 #include "aw_logger/log_event.hpp"
 
 namespace aw_logger {
+/***
+ * @brief cache timezone lookup for event construction
+ * @return current timezone
+ */
+inline const std::chrono::time_zone* logger_time_zone()
+{
+    static const std::chrono::time_zone* zone = std::chrono::current_zone();
+    return zone;
+}
+
 LogEvent::LogEvent(
     Logger::Ptr logger,
     LogLevel::level level,
     LocalSourceLocation<std::string> wrapped_msg
 ):
-    logger_(std::move(logger)),
+    logger_(logger),
     level_(level),
-    timestamp_({ std::chrono::current_zone(), std::chrono::system_clock::now() }),
+    timestamp_({ logger_time_zone(), std::chrono::system_clock::now() }),
     wrapped_msg_(std::move(wrapped_msg)),
     thread_id_(LogEvent::getThreadId())
 {}

@@ -1,4 +1,4 @@
-// Copyright 2025 siyiovo
+// Copyright 2026 siyiovo
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,13 +19,152 @@
 #include <gtest/gtest.h>
 
 // C++ standard library
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <filesystem>
+#include <mutex>
+#include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 // aw_logger library
 #include "aw_logger/aw_logger.hpp"
 #include "utils.hpp"
+
+template<typename T>
+concept HasStats = requires(const T& logger)
+{
+    logger.getStats();
+};
+
+static_assert(!HasStats<aw_logger::Logger>);
+
+/***
+ * @brief appender that pauses the first append
+ */
+class BlockingAppender final: public aw_logger::BaseAppender {
+public:
+    /***
+     * @brief constructor
+     * @param flush_logger optional logger to flush from append
+     */
+    explicit BlockingAppender(std::weak_ptr<aw_logger::Logger> flush_logger = {}):
+        flush_logger_(std::move(flush_logger))
+    {}
+
+    /***
+     * @brief append event and pause the first call
+     * @param event log event
+     */
+    void append(const aw_logger::LogEvent::Ptr& event) override
+    {
+        std::unique_lock<std::mutex> lk(mtx_);
+        messages_.push_back(event->getMsg());
+        if (auto logger = flush_logger_.lock())
+            logger->flush();
+        if (messages_.size() == 1)
+        {
+            entered_ = true;
+            entered_cv_.notify_all();
+            release_cv_.wait(lk, [this] { return released_; });
+        }
+    }
+
+    /***
+     * @brief flush appender output
+     */
+    void flush() override {}
+
+    /***
+     * @brief wait until the first append is paused
+     * @return whether the first append was entered
+     */
+    bool waitUntilEntered()
+    {
+        std::unique_lock<std::mutex> lk(mtx_);
+        return entered_cv_.wait_for(lk, std::chrono::seconds(2), [this] { return entered_; });
+    }
+
+    /***
+     * @brief release the paused append
+     */
+    void release()
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        released_ = true;
+        release_cv_.notify_all();
+    }
+
+    /***
+     * @brief copy delivered messages
+     * @return delivered messages
+     */
+    std::vector<std::string> messages()
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        return messages_;
+    }
+
+private:
+    /***
+     * @brief optional logger flushed by append
+     */
+    std::weak_ptr<aw_logger::Logger> flush_logger_;
+
+    /***
+     * @brief protects appender state
+     */
+    std::mutex mtx_;
+
+    /***
+     * @brief wakes waiters after the first append starts
+     */
+    std::condition_variable entered_cv_;
+
+    /***
+     * @brief wakes the paused append
+     */
+    std::condition_variable release_cv_;
+
+    /***
+     * @brief delivered event messages
+     */
+    std::vector<std::string> messages_;
+
+    /***
+     * @brief whether the first append started
+     */
+    bool entered_ = false;
+
+    /***
+     * @brief whether the first append may return
+     */
+    bool released_ = false;
+};
+
+std::vector<std::string> runOverflowPolicy(aw_logger::Logger::Policy policy)
+{
+    aw_logger::Logger::Options options;
+    options.normal_capacity = 2;
+    options.critical_capacity = 2;
+    options.normal_policy = policy;
+    options.critical_policy = policy;
+    auto appender = std::make_shared<BlockingAppender>();
+    auto logger =
+        std::make_shared<aw_logger::Logger>("overflow", aw_logger::LogLevel::level::DEBUG, options);
+    logger->setAppender(appender);
+
+    AW_LOG_INFO(logger, "first");
+    EXPECT_TRUE(appender->waitUntilEntered());
+    AW_LOG_INFO(logger, "second");
+    AW_LOG_INFO(logger, "third");
+    AW_LOG_INFO(logger, "fourth");
+    appender->release();
+    EXPECT_NO_THROW(logger->flush());
+    return appender->messages();
+}
 
 /***
  * @brief Test logger instance
@@ -77,6 +216,15 @@ TEST(HelloAWLogger, FMTMacro)
 }
 
 /***
+ * @brief verify a logger without an appender does not escape submit failures
+ */
+TEST(HelloAWLogger, LoggerWithoutAppender)
+{
+    auto logger = std::make_shared<aw_logger::Logger>("without_appender");
+    EXPECT_NO_THROW(AW_LOG_INFO(logger, "discarded"));
+}
+
+/***
  * @brief Test 100 macro calls
  */
 TEST(HelloAWLogger, HCall)
@@ -91,6 +239,170 @@ TEST(HelloAWLogger, HCall)
     }
 
     SUCCEED();
+}
+
+/***
+ * @brief verify drop_new delivery and flush behavior
+ */
+TEST(HelloAWLogger, DropNewOverflow)
+{
+    const auto messages = runOverflowPolicy(aw_logger::Logger::Policy::drop_new);
+    EXPECT_EQ(messages, (std::vector<std::string> { "first", "second", "third" }));
+}
+
+/***
+ * @brief verify overrun_oldest delivery and flush behavior
+ */
+TEST(HelloAWLogger, OverrunOldestOverflow)
+{
+    const auto messages = runOverflowPolicy(aw_logger::Logger::Policy::overrun_oldest);
+    EXPECT_EQ(messages, (std::vector<std::string> { "first", "third", "fourth" }));
+}
+
+/***
+ * @brief verify block policy delivers every event
+ */
+TEST(HelloAWLogger, BlockOverflow)
+{
+    aw_logger::Logger::Options options;
+    options.normal_capacity = 2;
+    options.critical_capacity = 2;
+    options.normal_policy = aw_logger::Logger::Policy::block;
+    options.critical_policy = aw_logger::Logger::Policy::block;
+    auto appender = std::make_shared<BlockingAppender>();
+    auto logger =
+        std::make_shared<aw_logger::Logger>("block", aw_logger::LogLevel::level::DEBUG, options);
+    logger->setAppender(appender);
+
+    AW_LOG_INFO(logger, "first");
+    ASSERT_TRUE(appender->waitUntilEntered());
+
+    std::atomic<int> submitted { 0 };
+    std::thread producer([&] {
+        AW_LOG_INFO(logger, "second");
+        submitted.fetch_add(1, std::memory_order_release);
+        AW_LOG_INFO(logger, "third");
+        submitted.fetch_add(1, std::memory_order_release);
+        AW_LOG_INFO(logger, "fourth");
+        submitted.fetch_add(1, std::memory_order_release);
+    });
+
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (submitted.load(std::memory_order_acquire) < 2
+           && std::chrono::steady_clock::now() < deadline)
+    {
+        std::this_thread::yield();
+    }
+    const bool producer_blocked = submitted.load(std::memory_order_acquire) == 2;
+    appender->release();
+    producer.join();
+
+    EXPECT_TRUE(producer_blocked);
+    EXPECT_EQ(submitted.load(std::memory_order_acquire), 3);
+    EXPECT_NO_THROW(logger->flush());
+    EXPECT_EQ(
+        appender->messages(),
+        (std::vector<std::string> { "first", "second", "third", "fourth" })
+    );
+}
+
+/***
+ * @brief verify stop rejects and wakes a blocked submission
+ */
+TEST(HelloAWLogger, StopWithBlockedSubmission)
+{
+    aw_logger::Logger::Options options;
+    options.normal_capacity = 2;
+    options.critical_capacity = 2;
+    options.normal_policy = aw_logger::Logger::Policy::block;
+    options.critical_policy = aw_logger::Logger::Policy::block;
+    auto appender = std::make_shared<BlockingAppender>();
+    auto logger = std::make_shared<aw_logger::Logger>(
+        "stop_block",
+        aw_logger::LogLevel::level::DEBUG,
+        options
+    );
+    logger->setAppender(appender);
+
+    AW_LOG_INFO(logger, "first");
+    ASSERT_TRUE(appender->waitUntilEntered());
+
+    std::atomic<int> submitted { 0 };
+    std::thread producer([&] {
+        AW_LOG_INFO(logger, "second");
+        submitted.fetch_add(1, std::memory_order_release);
+        AW_LOG_INFO(logger, "third");
+        submitted.fetch_add(1, std::memory_order_release);
+        AW_LOG_INFO(logger, "fourth");
+        submitted.fetch_add(1, std::memory_order_release);
+    });
+
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (submitted.load(std::memory_order_acquire) < 2
+           && std::chrono::steady_clock::now() < deadline)
+    {
+        std::this_thread::yield();
+    }
+    const bool producer_blocked = submitted.load(std::memory_order_acquire) == 2;
+
+    std::atomic<bool> stopped { false };
+    std::thread stopper([&] {
+        logger->stop();
+        stopped.store(true, std::memory_order_release);
+    });
+
+    deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (submitted.load(std::memory_order_acquire) < 3
+           && std::chrono::steady_clock::now() < deadline)
+    {
+        std::this_thread::yield();
+    }
+    const bool producer_released = submitted.load(std::memory_order_acquire) == 3;
+    appender->release();
+    producer.join();
+    stopper.join();
+
+    EXPECT_TRUE(producer_blocked);
+    EXPECT_TRUE(producer_released);
+    EXPECT_TRUE(stopped.load(std::memory_order_acquire));
+    EXPECT_EQ(appender->messages(), (std::vector<std::string> { "first", "second", "third" }));
+}
+
+/***
+ * @brief verify a stopped logger can be started again
+ */
+TEST(HelloAWLogger, RestartAfterStop)
+{
+    auto appender = std::make_shared<BlockingAppender>();
+    auto logger = std::make_shared<aw_logger::Logger>("restart");
+    logger->setAppender(appender);
+
+    AW_LOG_INFO(logger, "before stop");
+    ASSERT_TRUE(appender->waitUntilEntered());
+    appender->release();
+    ASSERT_NO_THROW(logger->flush());
+
+    logger->stop();
+    logger->start();
+    AW_LOG_INFO(logger, "after start");
+    ASSERT_NO_THROW(logger->flush());
+
+    EXPECT_EQ(appender->messages(), (std::vector<std::string> { "before stop", "after start" }));
+}
+
+/***
+ * @brief verify flush from an appender callback does not deadlock
+ */
+TEST(HelloAWLogger, FlushFromAppenderCallback)
+{
+    auto logger = std::make_shared<aw_logger::Logger>("flush_callback");
+    auto appender = std::make_shared<BlockingAppender>(logger);
+    appender->release();
+    logger->setAppender(appender);
+
+    AW_LOG_INFO(logger, "callback flush");
+    ASSERT_NO_THROW(logger->flush());
+    EXPECT_EQ(appender->messages(), (std::vector<std::string> { "callback flush" }));
 }
 
 /***

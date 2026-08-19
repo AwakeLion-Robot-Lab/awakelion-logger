@@ -1,4 +1,4 @@
-// Copyright 2025 siyiovo
+// Copyright 2026 siyiovo
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,11 @@
 
 namespace aw_logger {
 inline Logger::Logger(const std::string& name, const LogLevel::level lvl):
-    rb_(256),
+    Logger(name, lvl, Options {})
+{}
+
+inline Logger::Logger(const std::string& name, const LogLevel::level lvl, const Options& options):
+    options_(options),
     threshold_level_(lvl),
     running_(false),
     name_(name)
@@ -34,51 +38,127 @@ inline Logger::Logger(const std::string& name, const LogLevel::level lvl):
 
 inline Logger::~Logger()
 {
-    /* flush ringbuffer and stop */
+    /* reject destruction inside worker */
+    if (active_worker_logger_ == this)
+        std::terminate();
+
+    /* flush queues and stop */
     flush();
     stop();
 }
 
-void Logger::submit(const std::shared_ptr<LogEvent>& event)
+inline void Logger::submit(const std::shared_ptr<LogEvent>& event)
 {
     /* check status of log level */
-    auto curr_level = getThresholdLevel();
+    const auto curr_level = getThresholdLevel();
     if (event == nullptr || event->getLogLevel() < curr_level)
         return;
 
-    /* get status of appenders list via thread-safe copy */
-    bool has_appenders = false;
+    /* route to the local queue or the bound root logger */
+    Backend* state = nullptr;
+    Logger::Ptr root;
+    std::shared_lock<std::shared_mutex> route_lock(rw_mtx_);
+    if (!appenders_.empty())
     {
-        std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
-        has_appenders = !appenders_.empty();
+        state = backend_.get();
     }
-
-    /* check whether it have own appenders */
-    if (has_appenders)
+    else
     {
-        /* if current logger has appenders, start it for once, after once, it will return via CAS operation */
-        start();
+        root = root_logger_;
+    }
+    route_lock.unlock();
 
-        /* if get new event, notify worker thread via `std::condition_variable` */
-        if (rb_.push(event))
-        {
-            std::unique_lock<std::mutex> cv_lk(cv_mtx_);
-            cv_.notify_one();
-        }
+    if (state == nullptr)
+    {
+        if (root != nullptr)
+            root->submit(event);
+        else
+            throw aw_logger::invalid_parameter("root logger is nullptr!");
         return;
     }
 
-    /* if it do not have own appenders, alter to root logger to append */
-    Logger::Ptr curr_root_logger;
+    /* choose queue by log level */
+    const bool critical = event->getLogLevel() >= LogLevel::level::ERROR;
+    const auto policy = critical ? options_.critical_policy : options_.normal_policy;
+    if (policy == Logger::Policy::block && active_worker_logger_ == this)
+        throw aw_logger::invalid_parameter("blocking submit from appender callback is invalid!");
+
+    /* start worker before publishing the event */
+    try
     {
-        std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
-        curr_root_logger = root_logger_;
+        startWorker(state, false);
+    } catch (...)
+    {
+        return;
     }
 
-    if (curr_root_logger != nullptr)
-        curr_root_logger->submit(event);
-    else
-        throw aw_logger::invalid_parameter("root logger is nullptr!");
+    if (!beginSubmission())
+        return;
+
+    bool accepted = false;
+    LogEvent::Ptr overwritten_event;
+    auto& queue = critical ? state->critical : state->normal;
+    /* apply selected overflow policy */
+    try
+    {
+        switch (policy)
+        {
+            case Logger::Policy::drop_new:
+                accepted = queue.push(event);
+                break;
+            case Logger::Policy::block:
+                accepted = pushBlocking(state, queue, event);
+                break;
+            case Logger::Policy::overrun_oldest:
+                accepted = queue.pushOverwriteOldest(event, overwritten_event);
+                break;
+        }
+    } catch (...)
+    {
+        finishSubmission();
+        throw;
+    }
+
+    if (accepted && overwritten_event != nullptr)
+    {
+        /* complete the event removed by overwrite */
+        auto& completed = critical ? state->critical_completed : state->normal_completed;
+        completed.fetch_add(1, std::memory_order_release);
+        state->flush_cv.notify_all();
+    }
+
+    if (accepted && policy != Logger::Policy::block)
+    {
+        /* wake worker after enqueue */
+        state->work_seq.fetch_add(1, std::memory_order_seq_cst);
+        state->work_seq.notify_one();
+    }
+    finishSubmission();
+}
+
+inline bool Logger::pushBlocking(
+    Backend* state,
+    RingBuffer<std::shared_ptr<LogEvent>>& queue,
+    const std::shared_ptr<LogEvent>& event
+)
+{
+    std::unique_lock<std::mutex> wait_lk(state->space_mtx);
+    while (isAccepting())
+    {
+        if (queue.push(event))
+        {
+            /* publish work before releasing space mutex */
+            state->work_seq.fetch_add(1, std::memory_order_seq_cst);
+            state->work_seq.notify_one();
+            return true;
+        }
+
+        /* wait for consumer progress or shutdown */
+        state->space_cv.wait(wait_lk, [&] {
+            return !isAccepting() || queue.getSize() < queue.getCapacity();
+        });
+    }
+    return false;
 }
 
 inline void Logger::setRootLogger(const Logger::Ptr& root_logger)
@@ -112,7 +192,14 @@ inline void Logger::setAppender(const std::shared_ptr<BaseAppender>& appender)
             + "has already setup!"
         );
 
+    /* allocate queues lazily with the first appender */
+    std::unique_ptr<Backend> new_backend;
+    if (backend_ == nullptr)
+        new_backend = std::make_unique<Backend>(options_);
+
     appenders_.emplace_back(appender);
+    if (new_backend != nullptr)
+        backend_ = std::move(new_backend);
 }
 
 // clang-format off
@@ -163,101 +250,296 @@ inline void Logger::clearAppenders()
 
 inline void Logger::flush()
 {
-    /* wait until ringbuffer is empty */
-    while (rb_.getSize() > 0)
+    /* avoid waiting on the worker's own appender call */
+    if (active_worker_logger_ == this)
+        return;
+
+    Backend* state = nullptr;
+    Logger::Ptr root;
     {
-        std::this_thread::yield();
+        std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
+        state = backend_.get();
+        if (appenders_.empty())
+            root = root_logger_;
     }
 
-    /* flush all appenders, it change nothing about appenders list */
-    std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
-    for (const auto& app: appenders_)
+    if (state != nullptr)
     {
-        app->flush();
+        /* capture submission watermarks for this flush */
+        const auto normal_target = state->normal.getWritePosition();
+        const auto critical_target = state->critical.getWritePosition();
+        std::unique_lock<std::mutex> wait_lk(state->flush_mtx);
+        /* wait until both queues reach the captured watermarks */
+        state->flush_cv.wait(wait_lk, [&] {
+            return state->normal_completed.load(std::memory_order_acquire) >= normal_target
+                && state->critical_completed.load(std::memory_order_acquire) >= critical_target;
+        });
+        wait_lk.unlock();
+
+        /* serialize flush with worker appender calls */
+        std::unique_lock<std::mutex> appender_lk(state->appender_call_mtx);
+        std::vector<BaseAppender::Ptr> snapshot;
+        {
+            /* snapshot appenders once per flush */
+            std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
+            snapshot.assign(appenders_.begin(), appenders_.end());
+        }
+        /* flush each appender independently */
+        for (const auto& app: snapshot)
+        {
+            try
+            {
+                app->flush();
+            } catch (...)
+            {
+                /* keep other appenders available */
+            }
+        }
     }
+
+    if (root != nullptr && root.get() != this)
+        root->flush();
 }
 
 void Logger::init()
 {
-    std::call_once(start_flag_, [this]() { start(); });
+    start();
 }
 
 void Logger::start()
 {
-    /* we gotta turn on running flag if worker thread is not running */
-    /* CAS operation reference: https://blog.csdn.net/feikudai8460/article/details/107035480 */
-    bool expected = false;
-    /* already running */
-    if (!running_.compare_exchange_strong(expected, true))
+    Backend* state = nullptr;
+    {
+        /* keep queue state stable while finding the backend */
+        std::shared_lock<std::shared_mutex> route_lock(rw_mtx_);
+        state = backend_.get();
+    }
+    startWorker(state, true);
+}
+
+inline void Logger::startWorker(Backend* state, bool reopen)
+{
+    if (state == nullptr)
+    {
+        if (reopen)
+            submission_state_.fetch_and(~stopped_mask_, std::memory_order_release);
+        return;
+    }
+
+    /* serialize worker lifecycle transitions */
+    std::lock_guard<std::mutex> worker_lk(state->worker_lifecycle_mtx);
+    if (running_.load(std::memory_order_acquire))
         return;
 
-    /* weak pointer to avoid circular reference */
-    auto self = std::weak_ptr<Logger>(shared_from_this());
-    /* worker thread */
-    worker_ = std::thread([self]() {
-        /* keep running */
-        while (true)
+    if (state->worker.joinable())
+    {
+        if (active_worker_logger_ == this)
+            return;
+        state->worker.join();
+    }
+
+    if (reopen)
+        submission_state_.fetch_and(~stopped_mask_, std::memory_order_release);
+    if (!isAccepting())
+        return;
+
+    /* publish running state before thread creation */
+    running_.store(true, std::memory_order_release);
+    try
+    {
+        state->worker = std::thread([this, state]() { workerLoop(state); });
+    } catch (...)
+    {
+        running_.store(false, std::memory_order_release);
+        throw;
+    }
+}
+
+inline void Logger::workerLoop(Backend* state)
+{
+    active_worker_logger_ = this;
+
+    const auto pop_event = [state](
+                               RingBuffer<std::shared_ptr<LogEvent>>& queue,
+                               const Logger::Policy policy,
+                               LogEvent::Ptr& event
+                           ) {
+        /* serialize overwrite and blocking policies with producers */
+        if (policy == Logger::Policy::overrun_oldest)
+            return queue.popOverwriteOldest(event);
+
+        if (policy == Logger::Policy::block)
         {
-            /* get instance of current logger */
-            auto logger = self.lock();
-            if (logger == nullptr)
+            bool popped = false;
+            {
+                std::lock_guard<std::mutex> space_lk(state->space_mtx);
+                popped = queue.pop(event);
+            }
+            if (popped)
+                state->space_cv.notify_all();
+            return popped;
+        }
+
+        return queue.pop(event);
+    };
+
+    uint64_t observed_work_seq = state->work_seq.load(std::memory_order_seq_cst);
+    while (true)
+    {
+        /* wait for new work or shutdown */
+        while (state->normal.getSize() == 0 && state->critical.getSize() == 0)
+        {
+            if (!running_.load(std::memory_order_acquire))
+                return;
+
+            const auto current_work_seq = state->work_seq.load(std::memory_order_seq_cst);
+            if (current_work_seq != observed_work_seq)
+            {
+                observed_work_seq = current_work_seq;
+                continue;
+            }
+            state->work_seq.wait(observed_work_seq, std::memory_order_seq_cst);
+        }
+
+        std::vector<BaseAppender::Ptr> snapshot;
+        {
+            /* snapshot appenders once per batch */
+            std::shared_lock<std::shared_mutex> read_lk(rw_mtx_);
+            snapshot.assign(appenders_.begin(), appenders_.end());
+        }
+
+        std::unique_lock<std::mutex> appender_lk(state->appender_call_mtx);
+        /* prefer critical events but reserve normal progress */
+        size_t critical_budget = 8;
+        size_t normal_budget = 1;
+        /* 64 is the maximum number of events to process in a single batch */
+        for (size_t n = 0; n < 64; ++n)
+        {
+            LogEvent::Ptr event;
+            bool critical = false;
+            if (critical_budget != 0 && pop_event(state->critical, options_.critical_policy, event))
+            {
+                --critical_budget;
+                critical = true;
+            }
+            else if (normal_budget != 0 && pop_event(state->normal, options_.normal_policy, event))
+            {
+                critical_budget = 8;
+                normal_budget = 1;
+            }
+            else if (pop_event(state->critical, options_.critical_policy, event))
+            {
+                critical_budget = 7;
+                critical = true;
+            }
+            else if (pop_event(state->normal, options_.normal_policy, event))
+            {
+                critical_budget = 8;
+                normal_budget = 0;
+            }
+            else
+            {
                 break;
+            }
 
-            /**
-             * wait for logger status(if not running, break the loop)
-             * or new log event(size > 0, pop out to appender)
-             */
-            std::unique_lock<std::mutex> cv_lk(logger->cv_mtx_);
-            logger->cv_.wait(cv_lk, [logger]() {
-                return !logger->running_.load(std::memory_order_relaxed)
-                    || logger->rb_.getSize() > 0;
-            });
-
-            /* check if logger is stopped and ringbuffer is empty */
-            if (!logger->running_.load(std::memory_order_relaxed) && logger->rb_.getSize() == 0)
-                break;
-
-            /* pop out log event from ringbuffer */
-            LogEvent::Ptr out_event;
-            while (logger->rb_.pop(out_event))
+            /* append event to the stable batch snapshot */
+            for (const auto& app: snapshot)
             {
                 try
                 {
-                    /* copy appenders in order to avoid data race which is for thread safe */
-                    std::list<BaseAppender::Ptr> copy_appenders;
-                    /* after this block, read lock will be released, and we get copied variables */
-                    {
-                        std::shared_lock<std::shared_mutex> read_lk(logger->rw_mtx_);
-                        copy_appenders = logger->appenders_;
-                    }
-
-                    /* submit to each appender */
-                    for (const auto& app: copy_appenders)
-                    {
-                        app->append(out_event);
-                    }
-                } catch (const std::exception& ex)
-                {
-                    std::cerr << ex.what() << '\n' << std::endl;
+                    app->append(event);
                 } catch (...)
                 {
-                    std::cerr << "unknown exception in logger worker thread.\n" << std::endl;
+                    /* keep other appenders available */
                 }
             }
+
+            /* complete event for flush */
+            auto& completed = critical ? state->critical_completed : state->normal_completed;
+            completed.fetch_add(1, std::memory_order_release);
+            state->flush_cv.notify_all();
         }
-    });
+        appender_lk.unlock();
+
+        observed_work_seq = state->work_seq.load(std::memory_order_seq_cst);
+        if (!running_.load(std::memory_order_acquire) && state->normal.getSize() == 0
+            && state->critical.getSize() == 0)
+        {
+            /* stop after draining queued events */
+            return;
+        }
+    }
 }
 
 inline void Logger::stop()
 {
-    /* if `running_` is true, we gotta turn it off */
-    bool expected = true;
-    if (running_.compare_exchange_strong(expected, false))
-        cv_.notify_all();
+    if (active_worker_logger_ == this)
+        throw aw_logger::invalid_parameter("stop from appender callback is invalid!");
 
-    /* wait for the worker thread to finish */
-    if (worker_.joinable())
-        worker_.join();
+    Backend* state = nullptr;
+    {
+        std::unique_lock<std::shared_mutex> write_lk(rw_mtx_);
+        /* close producer admission before waking waiters */
+        submission_state_.fetch_or(stopped_mask_, std::memory_order_acq_rel);
+        state = backend_.get();
+        if (state != nullptr)
+        {
+            /* wake blocked producers */
+            std::lock_guard<std::mutex> space_lk(state->space_mtx);
+            state->space_cv.notify_all();
+        }
+    }
+
+    if (state == nullptr)
+        return;
+
+    /* wait for submissions that entered before admission closed */
+    auto submission_state = submission_state_.load(std::memory_order_acquire);
+    while ((submission_state & ~stopped_mask_) != 0)
+    {
+        submission_state_.wait(submission_state, std::memory_order_acquire);
+        submission_state = submission_state_.load(std::memory_order_acquire);
+    }
+
+    /* serialize shutdown with a possible restart */
+    std::lock_guard<std::mutex> worker_lk(state->worker_lifecycle_mtx);
+    running_.store(false, std::memory_order_release);
+    /* wake worker for shutdown */
+    state->work_seq.fetch_add(1, std::memory_order_seq_cst);
+    state->work_seq.notify_all();
+    if (state->worker.joinable())
+    {
+        state->worker.join();
+    }
+}
+
+inline bool Logger::beginSubmission() noexcept
+{
+    auto state = submission_state_.load(std::memory_order_acquire);
+    while ((state & stopped_mask_) == 0)
+    {
+        if (submission_state_.compare_exchange_weak(
+                state,
+                state + 1,
+                std::memory_order_acq_rel,
+                std::memory_order_acquire
+            ))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+inline void Logger::finishSubmission() noexcept
+{
+    submission_state_.fetch_sub(1, std::memory_order_release);
+    submission_state_.notify_all();
+}
+
+inline bool Logger::isAccepting() const noexcept
+{
+    return (submission_state_.load(std::memory_order_acquire) & stopped_mask_) == 0;
 }
 
 inline LoggerManager::~LoggerManager()

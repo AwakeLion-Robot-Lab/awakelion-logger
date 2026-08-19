@@ -1,4 +1,4 @@
-// Copyright 2025 siyiovo
+// Copyright 2026 siyiovo
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 #define LOG_MACRO_HPP
 
 // C++ standard library
-#include <exception>
 #include <format>
 #include <memory>
 #include <string>
@@ -57,25 +56,29 @@ std::string format_message(std::string_view fmt, const Args&... args)
  */
 // clang-format off
 #define AW_LOG_BASE(logger, level, msg) \
-    if (level >= logger->getThresholdLevel()) \
+    do \
     { \
-        try \
+        auto&& logger_ref = (logger); \
+        if ((level) >= logger_ref->getThresholdLevel()) \
         { \
-            aw_logger::LogEventWrap( \
-                std::make_shared<aw_logger::LogEvent>( \
-                    logger, \
-                    level, \
-                    aw_logger::LogEvent::LocalSourceLocation<std::string>( \
-                        msg, \
-                        std::source_location::current() \
+            try \
+            { \
+                aw_logger::LogEventWrap( \
+                    std::make_shared<aw_logger::LogEvent>( \
+                        logger_ref, \
+                        level, \
+                        aw_logger::LogEvent::LocalSourceLocation<std::string>( \
+                            msg, \
+                            std::source_location::current() \
+                        ) \
                     ) \
-                ) \
-            ); \
-        } catch (std::exception & ex) \
-        { \
-            std::cerr << ex.what() << "\n" << std::endl; \
+                ); \
+            } catch (...) \
+            { \
+                /* keep formatting failures out of the caller */ \
+            } \
         } \
-    }
+    } while (false)
 // clang-format on
 
 /***
@@ -85,28 +88,8 @@ std::string format_message(std::string_view fmt, const Args&... args)
  * @param fmt unformatted log message
  * @param ... variadic arguments
  */
-// clang-format off
 #define AW_LOG_FMT_BASE(logger, level, fmt, ...) \
-    if (level >= logger->getThresholdLevel()) \
-    { \
-        try \
-        { \
-            aw_logger::LogEventWrap( \
-                std::make_shared<aw_logger::LogEvent>( \
-                    logger, \
-                    level, \
-                    aw_logger::LogEvent::LocalSourceLocation<std::string>( \
-                        aw_logger::format_message(fmt, ##__VA_ARGS__), \
-                        std::source_location::current() \
-                    ) \
-                ) \
-            ); \
-        } catch (std::exception & ex) \
-        { \
-            std::cerr << ex.what() << "\n" << std::endl; \
-        } \
-    }
-// clang-format on
+    AW_LOG_BASE(logger, level, aw_logger::format_message(fmt, ##__VA_ARGS__))
 
 #define AW_LOG_DEBUG(logger, msg) AW_LOG_BASE(logger, aw_logger::LogLevel::level::DEBUG, msg)
 

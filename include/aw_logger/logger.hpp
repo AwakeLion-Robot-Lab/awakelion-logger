@@ -1,4 +1,4 @@
-// Copyright 2025 siyiovo
+// Copyright 2026 siyiovo
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,9 +19,10 @@
 #include <atomic>
 #include <concepts>
 #include <condition_variable>
-#include <iostream>
+#include <cstdint>
 #include <list>
 #include <memory>
+#include <mutex>
 #include <shared_mutex>
 #include <string>
 #include <thread>
@@ -50,10 +51,7 @@ class BaseAppender;
 class ConsoleAppender;
 
 /***
- * @brief asynchronous logger class with a center ringbuffer
- * @note I'm strongly remind you that you should resize via test,
- * @note if the number consumers is lower than producer a lot, `capacity` should be lower than 512.
- * @note or `capacity` recommended to higher than 1024.
+ * @brief asynchronous logger with a bounded normal ringbuffer and a critical ringbuffer
  * @details
  * `std::enabled_shared_from_this` allow to manage the ONLY ONE share pointer of this class object
  *  via `std::shared_from_this`, which is CRTP
@@ -64,9 +62,43 @@ public:
     using ConstPtr = std::shared_ptr<const Logger>;
 
     /***
+     * @brief overflow policy of ringbuffer
+     * @details
+     * drop_new: drop new log event when ringbuffer is full
+     * block: block the producer thread until ringbuffer has space
+     * overrun_oldest: overwrite the oldest log event when ringbuffer is full
+     */
+    enum class Policy { drop_new, block, overrun_oldest };
+
+    /***
+     * @brief queue capacity and policy options
+     */
+    struct Options {
+        /***
+         * @brief normal ringbuffer capacity
+         */
+        size_t normal_capacity = 256;
+
+        /***
+         * @brief critical ringbuffer capacity
+         */
+        size_t critical_capacity = 64;
+
+        /***
+         * @brief normal ringbuffer overflow policy
+         */
+        Policy normal_policy = Policy::drop_new;
+
+        /***
+         * @brief critical ringbuffer overflow policy
+         */
+        Policy critical_policy = Policy::drop_new;
+    };
+
+    /***
      * @brief constructor
-     * @param lvl log level threshold for logger
      * @param name logger name
+     * @param lvl log level threshold for logger
      */
     explicit Logger(
         const std::string& name = "root",
@@ -74,18 +106,26 @@ public:
     );
 
     /***
-     * @brief destructor
+     * @brief constructor
+     * @param name logger name
+     * @param lvl log level threshold for logger
+     * @param options queue capacity and overflow options
+     */
+    explicit Logger(const std::string& name, const LogLevel::level lvl, const Options& options);
+
+    /***
+     * @brief release final owner outside appender callbacks
      */
     ~Logger();
 
     /***
-     * @brief initialize logger for ONLY ONCE
+     * @brief initialize logger worker
      */
     void init();
 
     /***
-     * @brief submit log event pointer to ringbuffer
-     * @param event enqueue event
+     * @brief submit log event to selected queue
+     * @param event log event to submit
      */
     void submit(const std::shared_ptr<LogEvent>& event);
 
@@ -143,8 +183,8 @@ public:
     void clearAppenders();
 
     /***
-     * @brief flush all pending log events
-     * @details wait until ringbuffer is empty and all appenders are flushed
+     * @brief wait for queue watermarks and flush appenders
+     * @note returns immediately from this logger's worker callback
      */
     void flush();
 
@@ -170,23 +210,76 @@ public:
 
 private:
     /***
+     * @brief current worker logger
+     * @details prevents self-join and destruction inside appender callbacks
+     */
+    inline static thread_local const Logger* active_worker_logger_ = nullptr;
+
+    /***
+     * @brief asynchronous backend state
+     */
+    struct Backend {
+        /***
+         * @brief constructor
+         * @param options queue capacity and overflow options
+         */
+        explicit Backend(const Options& options):
+            normal(options.normal_capacity),
+            critical(options.critical_capacity)
+        {}
+
+        /***
+         * @brief normal and critical event queues
+         */
+        RingBuffer<std::shared_ptr<LogEvent>> normal;
+        RingBuffer<std::shared_ptr<LogEvent>> critical;
+        /***
+         * @brief backend worker thread
+         */
+        std::thread worker;
+        /***
+         * @brief serialize worker lifecycle transitions
+         */
+        std::mutex worker_lifecycle_mtx;
+        /***
+         * @brief wake worker after a successful enqueue
+         */
+        std::atomic<uint64_t> work_seq { 0 };
+        /***
+         * @brief coordinate blocking producers with consumer progress
+         */
+        std::condition_variable space_cv;
+        std::mutex space_mtx;
+        /***
+         * @brief wake flush waiters after event completion
+         */
+        std::condition_variable flush_cv;
+        std::mutex flush_mtx;
+        /***
+         * @brief serialize appender calls from worker and flush
+         */
+        std::mutex appender_call_mtx;
+        /***
+         * @brief completed submission watermarks
+         */
+        std::atomic<uint64_t> normal_completed { 0 };
+        std::atomic<uint64_t> critical_completed { 0 };
+    };
+
+    /***
      * @brief binded root logger
      */
     Logger::Ptr root_logger_;
 
     /***
-     * @brief log event ringbuffer
+     * @brief lazy asynchronous backend
      */
-    RingBuffer<std::shared_ptr<LogEvent>> rb_;
+    std::unique_ptr<Backend> backend_;
 
     /***
-     * @brief worker thread to pop out log message from ringbuffer to appenders
-     * @details
-     * NOTE that it will create in `Logger::start()` 'cause worker_ is a member variable
-     * and join in `Logger::stop()`
-     * thread uses weak_ptr capture to avoid circular reference with Logger.
+     * @brief immutable queue options
      */
-    std::thread worker_;
+    Options options_;
 
     /***
      * @brief log level threshold
@@ -199,24 +292,14 @@ private:
     std::atomic<bool> running_;
 
     /***
-     * @brief start flag to ensure to start named logger ONLY ONCE
+     * @brief stopped flag in submission state
      */
-    std::once_flag start_flag_;
+    inline static constexpr uint64_t stopped_mask_ = uint64_t { 1 } << 63;
 
     /***
-     * @brief condition variable to notify the ringbuffer inside worker thread
-     * @details
-     * given to condition variable may be spurious wakeup or false wakeup, so we need to set predicate in `wait` function
-     * and predication should validate the status of `running_` and whether ringbuffer has new messages
+     * @brief stopped flag and active submission count
      */
-    std::condition_variable cv_;
-
-    /***
-     * @brief mutex to manage condition variable
-     * @details
-     * this mutex is used to protect the condition variable, it MUST BE independent with `rw_mtx_`
-     */
-    mutable std::mutex cv_mtx_;
+    std::atomic<uint64_t> submission_state_ { 0 };
 
     /***
      * @brief read and write logger mutex
@@ -240,6 +323,49 @@ private:
      * @brief logger name
      */
     std::string name_;
+
+    /***
+     * @brief start backend worker
+     * @param state backend state
+     * @param reopen reopen producer admission when explicitly started
+     */
+    void startWorker(Backend* state, bool reopen);
+
+    /***
+     * @brief consume backend events in batches
+     * @param state backend state
+     */
+    void workerLoop(Backend* state);
+
+    /***
+     * @brief wait for space and push event
+     * @param state backend state
+     * @param queue target queue
+     * @param event log event to push
+     * @return whether event was accepted
+     */
+    bool pushBlocking(
+        Backend* state,
+        RingBuffer<std::shared_ptr<LogEvent>>& queue,
+        const std::shared_ptr<LogEvent>& event
+    );
+
+    /***
+     * @brief register an active submission
+     * @return whether submission is accepted
+     */
+    bool beginSubmission() noexcept;
+
+    /***
+     * @brief complete an active submission
+     */
+    void finishSubmission() noexcept;
+
+    /***
+     * @brief check producer admission
+     * @return whether submissions are accepted
+     */
+    bool isAccepting() const noexcept;
 };
 
 /***

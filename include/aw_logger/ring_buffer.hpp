@@ -1,4 +1,4 @@
-// Copyright 2025 siyiovo
+// Copyright 2026 siyiovo
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 
 // aw_logger library
 #include "aw_logger/exception.hpp"
@@ -51,6 +52,16 @@ public:
      * @brief destructor
      */
     ~RingBuffer();
+
+    /***
+     * @brief disable copying
+     */
+    RingBuffer(const RingBuffer&) = delete;
+
+    /***
+     * @brief disable copy assignment
+     */
+    RingBuffer& operator=(const RingBuffer&) = delete;
 
     /***
      * @brief push data into ring buffer
@@ -91,6 +102,27 @@ public:
     {
         return mask_ + 1 - getSize();
     }
+
+    /***
+     * @brief get monotonic write position
+     * @retval current write position
+     */
+    inline size_t getWritePosition() const noexcept;
+
+    /***
+     * @brief push and discard oldest data under overwrite lock
+     * @param data data to be pushed
+     * @param discarded discarded oldest data
+     * @return whether data was pushed
+     */
+    bool pushOverwriteOldest(const value_t& data, value_t& discarded);
+
+    /***
+     * @brief pop with overwrite synchronization
+     * @param data pop-out data
+     * @return whether data was popped
+     */
+    bool popOverwriteOldest(value_t& data);
 
 private:
     /***
@@ -142,6 +174,11 @@ private:
      * @details wIdx and rIdx in different cache line to avoid false sharing
      */
     alignas(64) std::atomic<size_t> rIdx_;
+
+    /***
+     * @brief mutex for serialize overwrite push and pop
+     */
+    std::mutex overwrite_mtx_;
 
     /***
      * @brief capacity mask for fast modulo operation

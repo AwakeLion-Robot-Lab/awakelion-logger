@@ -1,4 +1,4 @@
-// Copyright 2025 siyiovo
+// Copyright 2026 siyiovo
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -215,54 +215,48 @@ inline void Formatter::formatComponentsTo(
     if (event == nullptr)
         throw aw_logger::invalid_parameter("log event pointer is nullptr!");
 
-    try
-    {
-        const std::string& color_code = colorForLevel(event->getLogLevel());
-        const bool is_has_color_code = color_enabled_ && !color_code.empty();
-        auto inserter = std::back_inserter(out);
+    const std::string& color_code = colorForLevel(event->getLogLevel());
+    const bool is_has_color_code = color_enabled_ && !color_code.empty();
+    auto inserter = std::back_inserter(out);
 
-        for (const auto& [type, format]: components)
+    for (const auto& [type, format]: components)
+    {
+        if (type == "timestamp")
         {
-            if (type == "timestamp")
-            {
-                std::format_to(inserter, "[{}]", event->getTimestamp());
-            }
-            else if (type == "level")
-            {
-                if (is_has_color_code)
-                    out.append(color_code);
-
-                std::format_to(inserter, "[{}]", event->getLogLevelString());
-
-                if (is_has_color_code)
-                    out.append(aw_logger::Color::endColor);
-            }
-            else if (type == "tid")
-            {
-                std::format_to(inserter, "[tid: {}]", event->getThreadId());
-            }
-            else if (type == "loc")
-            {
-                formatSourceLocation(out, event, format);
-            }
-            else if (type == "msg")
-            {
-                if (is_has_color_code)
-                    out.append(color_code);
-
-                out.append(event->getMsg());
-
-                if (is_has_color_code)
-                    out.append(aw_logger::Color::endColor);
-            }
-            else if (type == "text")
-            {
-                out.append(format);
-            }
+            std::format_to(inserter, "[{}]", event->getTimestamp());
         }
-    } catch (const std::exception& ex)
-    {
-        std::cerr << ex.what() << '\n' << std::endl;
+        else if (type == "level")
+        {
+            if (is_has_color_code)
+                out.append(color_code);
+
+            std::format_to(inserter, "[{}]", event->getLogLevelString());
+
+            if (is_has_color_code)
+                out.append(aw_logger::Color::endColor);
+        }
+        else if (type == "tid")
+        {
+            std::format_to(inserter, "[tid: {}]", event->getThreadId());
+        }
+        else if (type == "loc")
+        {
+            formatSourceLocation(out, event, format);
+        }
+        else if (type == "msg")
+        {
+            if (is_has_color_code)
+                out.append(color_code);
+
+            out.append(event->getMsg());
+
+            if (is_has_color_code)
+                out.append(aw_logger::Color::endColor);
+        }
+        else if (type == "text")
+        {
+            out.append(format);
+        }
     }
 }
 
@@ -281,8 +275,11 @@ inline std::string Formatter::formatColor(std::string_view format)
     return Formatter::vformat("\033[38;2;{};{};{}m", r, g, b);
 }
 
-inline void
-Formatter::formatSourceLocation(std::string& out, const LogEvent::Ptr& event, std::string_view format)
+inline void Formatter::formatSourceLocation(
+    std::string& out,
+    const LogEvent::Ptr& event,
+    std::string_view format
+)
 {
     auto const& loc = event->getSourceLocation();
     size_t prev_pos = 0, pos = 0;

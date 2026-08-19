@@ -1,4 +1,4 @@
-// Copyright 2025 siyiovo
+// Copyright 2026 siyiovo
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,9 +20,13 @@
 
 // C++ standard library
 #include <fcntl.h>
+#include <sched.h>
 #include <unistd.h>
-#include <iomanip>
+#include <atomic>
+#include <cstdint>
+#include <memory>
 #include <thread>
+#include <utility>
 #include <vector>
 
 // aw_logger library
@@ -56,6 +60,139 @@ private:
 };
 
 /***
+ * @brief appender wrapper that counts delivered events
+ */
+class CountingAppender final: public aw_logger::BaseAppender {
+public:
+    /***
+     * @brief construct a counting appender
+     * @param delegate appender receiving forwarded events
+     */
+    explicit CountingAppender(aw_logger::BaseAppender::Ptr delegate): delegate_(std::move(delegate))
+    {}
+
+    /***
+     * @brief forward an event and count it
+     * @param event event to append
+     */
+    void append(const aw_logger::LogEvent::Ptr& event) override
+    {
+        delegate_->append(event);
+        delivered_.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    /***
+     * @brief flush the wrapped appender
+     */
+    void flush() override
+    {
+        delegate_->flush();
+    }
+
+    /***
+     * @brief get the number of forwarded events
+     * @return delivered event count
+     */
+    uint64_t delivered() const noexcept
+    {
+        return delivered_.load(std::memory_order_relaxed);
+    }
+
+private:
+    /***
+     * @brief wrapped appender
+     */
+    aw_logger::BaseAppender::Ptr delegate_;
+
+    /***
+     * @brief delivered event count
+     */
+    std::atomic<uint64_t> delivered_ { 0 };
+};
+
+const char* PolicyName(aw_logger::Logger::Policy policy)
+{
+    switch (policy)
+    {
+        case aw_logger::Logger::Policy::drop_new:
+            return "drop_new";
+        case aw_logger::Logger::Policy::block:
+            return "block";
+        case aw_logger::Logger::Policy::overrun_oldest:
+            return "overrun_oldest";
+    }
+    return "unknown";
+}
+
+/***
+ * @brief pin benchmark execution to CPU 0
+ */
+void pinToCpu0()
+{
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(0, &cpuset);
+    sched_setaffinity(0, sizeof(cpuset), &cpuset);
+}
+
+void printDeliveryStats(uint64_t offered, uint64_t delivered)
+{
+    const uint64_t not_delivered = offered > delivered ? offered - delivered : 0;
+    std::cerr << "offered=" << offered << " delivered=" << delivered
+              << " not delivered=" << not_delivered << '\n';
+}
+
+void runPolicyBenchmark(aw_logger::Logger::Policy policy)
+{
+    const char* name = PolicyName(policy);
+    aw_logger::Logger::Options options;
+    options.normal_policy = policy;
+    options.critical_policy = policy;
+    auto logger = std::make_shared<aw_logger::Logger>(
+        std::string("benchmark_") + std::string(name),
+        aw_logger::LogLevel::level::DEBUG,
+        options
+    );
+    auto counting_appender =
+        std::make_shared<CountingAppender>(std::make_shared<aw_logger::ConsoleAppender>());
+    logger->setAppender(counting_appender);
+
+    constexpr uint64_t kIterations = 100000;
+    aw_test::Latency latency;
+    long long producer_elapsed = 0;
+    long long drain_elapsed = 0;
+    long long end_to_end_elapsed = 0;
+    {
+        StdoutRedirector redirector("/dev/null");
+        aw_test::TicToc end_to_end_timer;
+        end_to_end_timer.tic();
+        aw_test::TicToc producer_timer;
+        producer_timer.tic();
+        for (uint64_t i = 0; i < kIterations; ++i)
+        {
+            aw_test::TicToc timer;
+            timer.tic();
+            AW_LOG_FMT_INFO(logger, "policy={} iteration={}", name, i);
+            latency.add(timer.toc());
+        }
+        producer_elapsed = producer_timer.toc();
+
+        aw_test::TicToc drain_timer;
+        drain_timer.tic();
+        logger->flush();
+        drain_elapsed = drain_timer.toc();
+        end_to_end_elapsed = end_to_end_timer.toc();
+    }
+
+    std::cerr << "\n[Test policy] " << name << " (" << kIterations << " calls)\n";
+    latency.print(std::string("Producer latency (") + std::string(name) + ")", std::cerr);
+    std::cerr << "producer elapsed=" << producer_elapsed << " ns\n"
+              << "flush drain=" << drain_elapsed << " ns\n"
+              << "end-to-end elapsed=" << end_to_end_elapsed << " ns\n";
+    printDeliveryStats(kIterations, counting_appender->delivered());
+}
+
+/***
  * @brief Benchmark: Basic macro -> Console
  */
 TEST(BenchmarkLogger, BasicMacro_Console)
@@ -81,6 +218,7 @@ TEST(BenchmarkLogger, BasicMacro_Console)
 
     total_timer.toc();
 
+    logger->flush();
     stats.print("Basic Macro (Console)");
     SUCCEED();
 }
@@ -114,6 +252,7 @@ TEST(BenchmarkLogger, BasicMacro_DevNull)
         }
 
         total_timer.toc();
+        logger->flush();
     }
 
     stats.print("Basic Macro (/dev/null)");
@@ -146,6 +285,7 @@ TEST(BenchmarkLogger, FmtMacro_Console)
 
     total_timer.toc();
 
+    logger->flush();
     stats.print("Formatted Macro (Console)");
     SUCCEED();
 }
@@ -178,6 +318,7 @@ TEST(BenchmarkLogger, FmtMacro_DevNull)
         }
 
         total_timer.toc();
+        logger->flush();
     }
 
     stats.print("Formatted Macro (/dev/null)");
@@ -235,6 +376,7 @@ TEST(BenchmarkLogger, DifferentLevels_Console)
         stats.print("ERROR Level (Console)");
     }
 
+    logger->flush();
     SUCCEED();
 }
 
@@ -291,6 +433,7 @@ TEST(BenchmarkLogger, DifferentLevels_DevNull)
         stats.print("ERROR Level (/dev/null)", std::cerr);
     }
 
+    logger->flush();
     SUCCEED();
 }
 
@@ -320,6 +463,7 @@ TEST(BenchmarkLogger, ExtremeLoad_Console)
 
     total_timer.toc();
 
+    logger->flush();
     stats.print("Extreme Load (Console, 100K calls)");
     SUCCEED();
 }
@@ -352,6 +496,7 @@ TEST(BenchmarkLogger, ExtremeLoad_DevNull)
         }
 
         total_timer.toc();
+        logger->flush();
     }
 
     stats.print("Extreme Load (/dev/null, 100K calls)");
@@ -387,6 +532,7 @@ TEST(BenchmarkLogger, MultiTypeFormatting_Comparison)
             );
             stats.add(timer.toc());
         }
+        logger->flush();
         stats.print("Multi-Type (Console)");
     }
 
@@ -408,6 +554,7 @@ TEST(BenchmarkLogger, MultiTypeFormatting_Comparison)
             );
             stats.add(timer.toc());
         }
+        logger->flush();
         stats.print("Multi-Type (/dev/null)", std::cerr);
     }
 
@@ -449,10 +596,48 @@ TEST(BenchmarkLogger, MultiThreadedLogging)
 
     double elapsed = timer.toc();
     int total_logs = NUM_THREADS * LOGS_PER_THREAD;
+    logger->flush();
 
-    std::cerr << "====================Elapsed time: " << "===================\n"
-              << elapsed << " nanoseconds\n";
+    std::cerr << "====================Elapsed time: "
+              << "===================\n"
+              << elapsed << " nanoseconds for " << total_logs << " calls\n";
     SUCCEED();
+}
+
+/***
+ * @brief benchmark producer latency with /dev/null
+ */
+TEST(BenchmarkLogger, ProducerLatency_DevNull)
+{
+    auto logger = std::make_shared<aw_logger::Logger>("benchmark_producer_devnull");
+    logger->setAppender(std::make_shared<aw_logger::ConsoleAppender>());
+
+    constexpr int ITERATIONS = 20000;
+    aw_test::Latency latency;
+    {
+        StdoutRedirector redirector("/dev/null");
+        for (int i = 0; i < ITERATIONS; ++i)
+        {
+            aw_test::TicToc timer;
+            timer.tic();
+            AW_LOG_FMT_INFO(logger, "short message {}", i);
+            latency.add(timer.toc());
+        }
+        logger->flush();
+    }
+
+    latency.print("Producer Latency (/dev/null)", std::cerr);
+}
+
+/***
+ * @brief compare bounded queue overflow policies
+ */
+TEST(BenchmarkLogger, OverflowPolicies_DevNull)
+{
+    pinToCpu0();
+    runPolicyBenchmark(aw_logger::Logger::Policy::drop_new);
+    runPolicyBenchmark(aw_logger::Logger::Policy::block);
+    runPolicyBenchmark(aw_logger::Logger::Policy::overrun_oldest);
 }
 
 #endif //! TEST__LOAD_BENCHMARK_CPP
